@@ -54,7 +54,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.putting_settings_form = PuttingForm(main_window=self)
         self.putting = Putting(main_window=self)
         self.setWindowTitle(f"{MainWindow.app_name} {MainWindow.version}")
+
+        # Initialize slider default values
+        self.current_saturation_threshold = 2.5  # Default for shot data (saturation threshold)
+        self.current_obs_threshold = 16  # Default for OBS websocket trigger
+        self.currentSaturationLabel.setText("Current Saturation: 0.00")
+
         self.__setup_ui()
+        self.__setup_connections()
         self.__auto_start()
 
     def __setup_logging(self):
@@ -93,20 +100,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.actionShop.triggered.connect(self.__shop)
         self.gspro_connect_button.clicked.connect(self.__gspro_connect)
         self.main_tab.setCurrentIndex(0)
-        #self.log_table.horizontalHeader().setStretchLastSection(True)
         self.log_table.setHorizontalHeaderLabels(['Date', 'Type', 'System', 'Message'])
         self.log_table.setColumnWidth(LogTableCols.date, 120)
         self.log_table.setColumnWidth(LogTableCols.message, 1000)
         self.log_table.resizeRowsToContents()
         self.log_table.setTextElideMode(Qt.ElideNone)
         headings = ['Result']
-        vla = list(BallData.properties).index(BallMetrics.VLA)+1
-        hla = list(BallData.properties).index(BallMetrics.HLA)+1
+        vla = list(BallData.properties).index(BallMetrics.VLA) + 1
+        hla = list(BallData.properties).index(BallMetrics.HLA) + 1
         for metric in BallData.properties:
             headings.append(BallData.properties[metric])
         self.shot_history_table.resizeRowsToContents()
         self.shot_history_table.setTextElideMode(Qt.ElideNone)
-        self.shot_history_table.setColumnCount(len(BallData.properties)+1)
+        self.shot_history_table.setColumnCount(len(BallData.properties) + 1)
         self.shot_history_table.setHorizontalHeaderLabels(headings)
         self.shot_history_table.setColumnWidth(vla, 150)
         self.shot_history_table.setColumnWidth(hla, 150)
@@ -120,26 +126,63 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.restart_button.setEnabled(False)
         self.pause_button.setEnabled(False)
         self.settings_form.saved.connect(self.__settings_saved)
-        # Find and load refs to all edit fields
         self.__find_edit_fields()
+
+        # --- Initialize the Sliders ---
+        # Slider for saturation threshold (shot data)
+        self.saturationSlider.setMinimum(0)
+        self.saturationSlider.setMaximum(500)  # This represents 0.0 to 50.0 when scaled by 10
+        self.saturationSlider.setSingleStep(1)
+        self.saturationSlider.setValue(int(self.current_saturation_threshold * 10))
+        self.saturationValueLabel.setText(f"{self.current_saturation_threshold:.1f}")
+
+        # Slider for OBS websocket triggering
+        self.obsSlider.setMinimum(0)
+        self.obsSlider.setMaximum(100)  # Adjust maximum as needed
+        self.obsSlider.setSingleStep(1)
+        self.obsSlider.setValue(self.current_obs_threshold)
+        self.obsValueLabel.setText(str(self.current_obs_threshold))
+
+    def __setup_connections(self):
+        # Connect slider value changes to their respective update functions
+        self.saturationSlider.valueChanged.connect(self.update_saturation_threshold)
+        self.obsSlider.valueChanged.connect(self.update_obs_threshold)
+        if hasattr(self.launch_monitor, 'device_worker'):
+            self.launch_monitor.device_worker.saturationChanged.connect(self.update_saturation_display)
+
+    def update_saturation_display(self, saturation):
+            """Slot to update the saturation display label."""
+            self.currentSaturationLabel.setText(f"Current Saturation: {saturation:.2f}")
+    def update_saturation_threshold(self, value):
+        # Scale back to a float value (e.g., 25 becomes 2.5)
+        self.current_saturation_threshold = value / 10.0
+        self.saturationValueLabel.setText(f"{self.current_saturation_threshold:.1f}")
+        logging.debug(f"Saturation threshold updated: {self.current_saturation_threshold}")
+
+    def update_obs_threshold(self, value):
+        self.current_obs_threshold = value
+        self.obsValueLabel.setText(str(self.current_obs_threshold))
+        logging.debug(f"OBS threshold updated: {self.current_obs_threshold}")
 
     def __auto_start(self):
         if self.settings.auto_start_all_apps == 'Yes':
-            if len(self.settings.gspro_path) > 0 and len(self.settings.grspo_window_name) and os.path.exists(self.settings.gspro_path):
+            if len(self.settings.gspro_path) > 0 and len(self.settings.grspo_window_name) and os.path.exists(
+                    self.settings.gspro_path):
                 self.log_message(LogMessageTypes.LOG_WINDOW, LogMessageSystems.CONNECTOR, f'Starting GSPro')
                 self.gspro_connection.gspro_start(self.settings, True)
             if self.settings.device_id != LaunchMonitor.RELAY_SERVER and \
                     self.settings.device_id != LaunchMonitor.MLM2PRO_BT and \
                     self.settings.device_id != LaunchMonitor.R10_BT and \
                     hasattr(self.settings, 'default_device') and self.settings.default_device != 'None':
-                self.log_message(LogMessageTypes.LOG_WINDOW, LogMessageSystems.CONNECTOR, f'Default Device specified, attempting to auto start all software')
+                self.log_message(LogMessageTypes.LOG_WINDOW, LogMessageSystems.CONNECTOR,
+                                 f'Default Device specified, attempting to auto start all software')
                 devices = Devices(self.app_paths)
                 device = devices.find_device(self.settings.default_device)
-                if not device is None:
+                if device is not None:
                     self.launch_monitor.select_device.select_device(device)
-                    self.log_message(LogMessageTypes.LOG_WINDOW, LogMessageSystems.CONNECTOR, f'Selecting Device:{device.name}')
-            elif self.settings.device_id == LaunchMonitor.MLM2PRO_BT or \
-                    self.settings.device_id == LaunchMonitor.R10_BT:
+                    self.log_message(LogMessageTypes.LOG_WINDOW, LogMessageSystems.CONNECTOR,
+                                     f'Selecting Device: {device.name}')
+            elif self.settings.device_id in (LaunchMonitor.MLM2PRO_BT, LaunchMonitor.R10_BT):
                 self.launch_monitor.server_start_stop()
             elif self.settings.device_id == LaunchMonitor.RELAY_SERVER:
                 self.launch_monitor.resume()
@@ -154,9 +197,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if self.settings_form.prev_device_id != self.settings.device_id:
             if self.launch_monitor is not None:
                 self.launch_monitor.shutdown()
-            if self.settings.device_id != LaunchMonitor.RELAY_SERVER and \
-                    self.settings.device_id != LaunchMonitor.MLM2PRO_BT and \
-                    self.settings.device_id != LaunchMonitor.R10_BT:
+            if self.settings.device_id not in (
+            LaunchMonitor.RELAY_SERVER, LaunchMonitor.MLM2PRO_BT, LaunchMonitor.R10_BT):
                 self.launch_monitor = DeviceLaunchMonitorScreenshot(self)
                 self.device_control_widget.show()
                 self.server_control_widget.hide()
@@ -199,11 +241,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def __donate(self):
         url = "https://ko-fi.com/springbok_dev"
-        webbrowser.open(url, new=2) # 2 = open in new tab
+        webbrowser.open(url, new=2)  # 2 = open in new tab
 
     def __shop(self):
         url = "https://cascadia3dpd.com"
-        webbrowser.open(url, new=2) # 2 = open in new tab
+        webbrowser.open(url, new=2)  # 2 = open in new tab
 
     def __gspro_connect(self):
         if self.gspro_connection.connected:
@@ -236,7 +278,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             item = QTableWidgetItem(message.message)
             item.setFlags(item.flags() ^ Qt.ItemIsEditable)
             self.log_table.setItem(row, LogTableCols.message, item)
-            self.log_table.selectRow(self.log_table.rowCount()-1)
+            self.log_table.selectRow(self.log_table.rowCount() - 1)
         if message.display_on(LogMessageTypes.LOG_FILE):
             logging.log(logging.INFO, message.message_string())
         if message.display_on(LogMessageTypes.STATUS_BAR):
@@ -245,7 +287,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def __add_shot_history_row(self, balldata: BallData):
         row = self.shot_history_table.rowCount()
         self.shot_history_table.insertRow(row)
-        i=1
+        i = 1
         for metric in BallData.properties:
             error = False
             correction = False
@@ -258,7 +300,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             else:
                 value = str(getattr(balldata, metric))
             item = QTableWidgetItem(value)
-            item.setTextAlignment(Qt.AlignHCenter|Qt.AlignVCenter)
+            item.setTextAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
             item.setFlags(item.flags() ^ Qt.ItemIsEditable)
             self.shot_history_table.setItem(row, i, item)
             if error:
@@ -270,20 +312,24 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     item.setBackground(QColor(MainWindow.good_shot_color))
                 else:
                     item.setBackground(QColor(MainWindow.good_putt_color))
-            i = i + 1
+            i += 1
         result = 'Success'
         if not balldata.good_shot:
             result = 'Failure'
             for metric in balldata.errors:
-                self.log_message(LogMessageTypes.LOGS,
-                             LogMessageSystems.CONNECTOR,
-                             f"{BallData.properties[metric]}: {balldata.errors[metric]}")
+                self.log_message(
+                    LogMessageTypes.LOGS,
+                    LogMessageSystems.CONNECTOR,
+                    f"{BallData.properties[metric]}: {balldata.errors[metric]}"
+                )
         else:
-            self.log_message(LogMessageTypes.LOGS,
-                     LogMessageSystems.GSPRO_CONNECT,
-                     f"{result}: {balldata.to_json()}")
+            self.log_message(
+                LogMessageTypes.LOGS,
+                LogMessageSystems.GSPRO_CONNECT,
+                f"{result}: {balldata.to_json()}"
+            )
         item = QTableWidgetItem(result)
-        item.setTextAlignment(Qt.AlignHCenter|Qt.AlignVCenter)
+        item.setTextAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
         item.setFlags(item.flags() ^ Qt.ItemIsEditable)
         self.shot_history_table.setItem(row, 0, item)
         if not balldata.good_shot:
@@ -293,7 +339,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 item.setBackground(QColor(MainWindow.good_shot_color))
             else:
                 item.setBackground(QColor(MainWindow.good_putt_color))
-        self.shot_history_table.selectRow(self.shot_history_table.rowCount()-1)
+        self.shot_history_table.selectRow(self.shot_history_table.rowCount() - 1)
 
     def __find_edit_fields(self):
         layouts = (self.edit_field_layout.itemAt(i) for i in range(self.edit_field_layout.count()))
@@ -306,13 +352,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         edit.setReadOnly(True)
 
     def __shot_history_changed(self):
-        i=1
+        i = 1
         for metric in BallData.properties:
             item = self.shot_history_table.item(self.shot_history_table.currentRow(), i)
             if metric != BallMetrics.CLUB and metric != BallMetrics.CLUB_FACE_TO_PATH:
                 self.edit_fields[metric].setPlainText(item.text())
-                self.edit_fields[metric].setAlignment(Qt.AlignHCenter|Qt.AlignVCenter)
+                self.edit_fields[metric].setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
                 palette = self.edit_fields[metric].palette()
                 palette.setColor(QPalette.Base, item.background().color())
                 self.edit_fields[metric].setPalette(palette)
-            i = i + 1
+            i += 1

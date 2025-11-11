@@ -16,7 +16,8 @@ class DeviceLaunchMonitorScreenshot(DeviceBase):
         self.current_device = None        
         self.devices = None
         self.select_device = None
-        self.device_worker = WorkerScreenshotDeviceLaunchMonitor(self.main_window.settings)
+        self.device_worker = WorkerScreenshotDeviceLaunchMonitor(self.main_window.settings, self.main_window)
+
         self.devices = DevicesForm(self.main_window.app_paths)
         self.select_device = SelectDeviceForm(self.main_window)
         self.setup_device_thread()

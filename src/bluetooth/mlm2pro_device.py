@@ -11,7 +11,7 @@ from src.bluetooth.bluetooth_device_base import BluetoothDeviceBase
 from src.bluetooth.bluetooth_device_service import BluetoothDeviceService
 from src.bluetooth.bluetooth_utils import BluetoothUtils
 from src.bluetooth.mlm2pro_encryption import MLM2PROEncryption
-from src.bluetooth.mlm2pro_secret import MLM2PROSecret
+#from src.bluetooth.mlm2pro_secret import MLM2PROSecret
 from src.bluetooth.mlm2pro_web_api import MLM2PROWebApi
 
 
@@ -76,8 +76,8 @@ class MLM2PRODevice(BluetoothDeviceBase):
         self._altitude_metres = 0.0
         self._temperature_celsius = 15.0
         self._encryption = MLM2PROEncryption()
-        self._web_api = MLM2PROWebApi(self._settings.web_api['url'],
-                                      MLM2PROSecret.decrypt(self._settings.web_api['secret']))
+        #self._web_api = MLM2PROWebApi(self._settings.web_api['url'],
+                                      #MLM2PROSecret.decrypt(self._settings.web_api['secret']))
 
 
     def __init_device(self, service: QBluetoothUuid) -> None:
