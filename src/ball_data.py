@@ -71,7 +71,9 @@ class BallData:
                        BallMetrics.SPIN_AXIS,
                        BallMetrics.HLA,
                        BallMetrics.VLA,
-                       BallMetrics.CLUB_SPEED
+                       BallMetrics.CLUB_SPEED,
+                       BallMetrics.ANGLE_OF_ATTACK,
+                       BallMetrics.CLUB_PATH
                        ]
     rois_uneekor_properties = [BallMetrics.SPEED,
                        BallMetrics.BACK_SPIN,
@@ -363,7 +365,33 @@ class BallData:
                     self.corrections[roi] = True
                     result = 0
             else:
-                result = float(result)
+                if len(result) > 1 and (
+                    roi == BallMetrics.HLA or
+                    roi == BallMetrics.SPIN_AXIS or
+                    roi == BallMetrics.CLUB_PATH or
+                    roi == BallMetrics.CLUB_FACE_TO_TARGET or
+                    roi == BallMetrics.CLUB_FACE_TO_PATH or
+                    roi == BallMetrics.ANGLE_OF_ATTACK
+                ):
+                    upper_result = result.upper()
+                    direction = None
+                    numeric = upper_result
+                    if upper_result.endswith(('L', 'R')):
+                        direction = upper_result[-1]
+                        numeric = upper_result[:-1]
+                    elif upper_result.startswith(('L', 'R')):
+                        direction = upper_result[0]
+                        numeric = upper_result[1:]
+                    if len(numeric) == 0:
+                        raise ValueError(f"Value for {BallData.properties[roi]} is empty")
+                    value = float(numeric)
+                    if direction == 'L' and value > 0:
+                        value *= -1
+                    elif direction == 'R' and value < 0:
+                        value *= -1
+                    result = value
+                else:
+                    result = float(result)
             logging.debug(f'result {roi}: {result}')
             # Check values are not 0
             if self.launch_monitor == LaunchMonitor.UNEEKOR:
