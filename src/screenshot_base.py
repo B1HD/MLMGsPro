@@ -216,10 +216,10 @@ class ScreenshotBase(ViewBox):
                     #path = f"{os.getcwd()}\\appdata\\logs\\original_{filename}"
                     #img.save(path)
                     bbox = ImageOps.invert(img).getbbox()
-                    bbox = img.point(lambda x: 255 - x).getbbox()
                     logging.debug(f'ocr {roi} - bounding box for white space removal: {bbox}')
                     bbox1 = []
                     if bbox is not None:
+                        width, height = img.size
                         for i in range(len(bbox)):
                             if (i == 0 or i == 1) and bbox[i] > 0: # left & upper
                                 new_value = bbox[i] - 5
@@ -228,7 +228,12 @@ class ScreenshotBase(ViewBox):
                                 else:
                                     bbox1.append(0)
                             elif (i == 2 or i == 3): # right & lower
-                                bbox1.append(bbox[i] + 5)
+                                expanded_value = bbox[i] + 5
+                                if i == 2:
+                                    expanded_value = min(expanded_value, width)
+                                else:
+                                    expanded_value = min(expanded_value, height)
+                                bbox1.append(expanded_value)
                             else:
                                 bbox1.append(bbox[i])
                         logging.debug(f'ocr {roi} - modified bounding box with a small amount of white space added: {bbox1}')
@@ -299,4 +304,6 @@ class ScreenshotBase(ViewBox):
                 logging.debug('Not a new shot')
         finally:
             tesserocr_api.End()
+            if fallback_tesserocr_api is not None:
+                fallback_tesserocr_api.End()
 
