@@ -71,7 +71,9 @@ class BallData:
                        BallMetrics.SPIN_AXIS,
                        BallMetrics.HLA,
                        BallMetrics.VLA,
-                       BallMetrics.CLUB_SPEED
+                       BallMetrics.CLUB_SPEED,
+                       BallMetrics.ANGLE_OF_ATTACK,
+                       BallMetrics.CLUB_PATH
                        ]
     rois_uneekor_properties = [BallMetrics.SPEED,
                        BallMetrics.BACK_SPIN,
@@ -138,6 +140,12 @@ class BallData:
         self.launch_monitor = None
         self.corrections = {}
         self.errors = {}
+        self.contains_ball_data = True
+        self.contains_club_data = True
+        self.club_data_only = False
+        self.gspro_shot_number = None
+        self.delayed_metrics_pending = False
+        self.delayed_metrics_update = False
         for key in BallData.properties:
             setattr(self, key, 0)
         for dictionary in initial_data:
@@ -188,8 +196,8 @@ class BallData:
                 "ClosureRate": 0
             },
             "ShotDataOptions": {
-                "ContainsBallData": True,
-                "ContainsClubData": True,
+                "ContainsBallData": self.contains_ball_data,
+                "ContainsClubData": self.contains_club_data,
                 "LaunchMonitorIsReady": True,
                 "LaunchMonitorBallDetected": True,
                 "IsHeartBeat": False
@@ -290,12 +298,12 @@ class BallData:
             # Strip non ascii chars and commas
             ocr_result = re.sub(r',', r'', re.sub(r'[^\x00-\x7f]', r'', ocr_result))
             logging.debug(f'remove non ASCII {roi}: {ocr_result.strip()}')
-            cleaned_result = re.findall(r"[LR]?[-+]?(?:\d*\.*\d+)[LR]?", ocr_result)
+            cleaned_result = re.findall(r"[LR]?\s*[-+]?(?:\d*\.*\d+)\s*[LR]?", ocr_result)
             if isinstance(cleaned_result, list or tuple) and len(cleaned_result) > 0:
                 cleaned_result = cleaned_result[0]
             logging.debug(f'cleaned result {roi}: {cleaned_result}')
             if len(cleaned_result) > 0:
-                cleaned_result = cleaned_result.strip()
+                cleaned_result = re.sub(r'\s+', '', cleaned_result.strip())
             if len(cleaned_result) <= 0:
                 logging.debug(f"Value for {BallData.properties[roi]} is empty")
                 cleaned_result = '0'
@@ -363,7 +371,33 @@ class BallData:
                     self.corrections[roi] = True
                     result = 0
             else:
-                result = float(result)
+                if len(result) > 1 and (
+                    roi == BallMetrics.HLA or
+                    roi == BallMetrics.SPIN_AXIS or
+                    roi == BallMetrics.CLUB_PATH or
+                    roi == BallMetrics.CLUB_FACE_TO_TARGET or
+                    roi == BallMetrics.CLUB_FACE_TO_PATH or
+                    roi == BallMetrics.ANGLE_OF_ATTACK
+                ):
+                    upper_result = result.upper()
+                    direction = None
+                    numeric = upper_result
+                    if upper_result.endswith(('L', 'R')):
+                        direction = upper_result[-1]
+                        numeric = upper_result[:-1]
+                    elif upper_result.startswith(('L', 'R')):
+                        direction = upper_result[0]
+                        numeric = upper_result[1:]
+                    if len(numeric) == 0:
+                        raise ValueError(f"Value for {BallData.properties[roi]} is empty")
+                    value = float(numeric)
+                    if direction == 'L' and value > 0:
+                        value *= -1
+                    elif direction == 'R' and value < 0:
+                        value *= -1
+                    result = value
+                else:
+                    result = float(result)
             logging.debug(f'result {roi}: {result}')
             # Check values are not 0
             if self.launch_monitor == LaunchMonitor.UNEEKOR:

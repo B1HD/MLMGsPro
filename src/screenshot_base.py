@@ -16,6 +16,7 @@ class ScreenshotBase(ViewBox):
     roi_color = "blue"
     roi_pen_width = 2
     roi_size_factor = 0.2
+    delayed_metric_keys = (BallMetrics.ANGLE_OF_ATTACK, BallMetrics.CLUB_PATH)
 
     def __init__(self, *args, **kwargs):
         ViewBox.__init__(self, *args, **kwargs)
@@ -35,6 +36,7 @@ class ScreenshotBase(ViewBox):
         self.previous_balldata = None
         self.previous_balldata_error = None
         self.balldata = None
+        self.waiting_for_delayed_metrics = False
         self.__setupUi()
         self.setAspectLocked(True)
         self.setMenuEnabled(False)
@@ -216,10 +218,10 @@ class ScreenshotBase(ViewBox):
                     #path = f"{os.getcwd()}\\appdata\\logs\\original_{filename}"
                     #img.save(path)
                     bbox = ImageOps.invert(img).getbbox()
-                    bbox = img.point(lambda x: 255 - x).getbbox()
                     logging.debug(f'ocr {roi} - bounding box for white space removal: {bbox}')
                     bbox1 = []
                     if bbox is not None:
+                        width, height = img.size
                         for i in range(len(bbox)):
                             if (i == 0 or i == 1) and bbox[i] > 0: # left & upper
                                 new_value = bbox[i] - 5
@@ -228,7 +230,12 @@ class ScreenshotBase(ViewBox):
                                 else:
                                     bbox1.append(0)
                             elif (i == 2 or i == 3): # right & lower
-                                bbox1.append(bbox[i] + 5)
+                                expanded_value = bbox[i] + 5
+                                if i == 2:
+                                    expanded_value = min(expanded_value, width)
+                                else:
+                                    expanded_value = min(expanded_value, height)
+                                bbox1.append(expanded_value)
                             else:
                                 bbox1.append(bbox[i])
                         logging.debug(f'ocr {roi} - modified bounding box with a small amount of white space added: {bbox1}')
@@ -269,6 +276,23 @@ class ScreenshotBase(ViewBox):
             else:
                 diff_count = 1
             self.new_shot = diff_count > 0
+            needs_delayed_metrics = self.__needs_delayed_metrics(self.balldata)
+            if self.new_shot:
+                if (self.waiting_for_delayed_metrics and not needs_delayed_metrics and
+                        self.previous_balldata is not None and
+                        self.__only_delayed_metrics_changed(self.previous_balldata, self.balldata)):
+                    self.balldata.delayed_metrics_update = True
+                    self.waiting_for_delayed_metrics = False
+                if needs_delayed_metrics and not self.balldata.delayed_metrics_update:
+                    self.balldata.delayed_metrics_pending = True
+                    self.waiting_for_delayed_metrics = True
+                else:
+                    self.balldata.delayed_metrics_pending = False
+                    if not self.balldata.delayed_metrics_update:
+                        self.waiting_for_delayed_metrics = False
+            else:
+                self.balldata.delayed_metrics_pending = False
+                self.balldata.delayed_metrics_update = False
             if self.new_shot:
                 if len(self.balldata.errors) > 0:
                     self.balldata.good_shot = False
@@ -299,4 +323,26 @@ class ScreenshotBase(ViewBox):
                 logging.debug('Not a new shot')
         finally:
             tesserocr_api.End()
+            if fallback_tesserocr_api is not None:
+                fallback_tesserocr_api.End()
+
+    def __needs_delayed_metrics(self, balldata):
+        if self.settings.device_id != LaunchMonitor.MLM2PRO:
+            return False
+        for metric in ScreenshotBase.delayed_metric_keys:
+            value = getattr(balldata, metric, 0)
+            if value == 0 or value == BallData.invalid_value:
+                return True
+        return False
+
+    def __only_delayed_metrics_changed(self, previous_balldata, current_balldata):
+        changed = []
+        for roi in BallData.properties:
+            if roi == BallMetrics.CLUB:
+                continue
+            if getattr(previous_balldata, roi, None) != getattr(current_balldata, roi, None):
+                changed.append(roi)
+        if not changed:
+            return False
+        return all(metric in ScreenshotBase.delayed_metric_keys for metric in changed)
 
