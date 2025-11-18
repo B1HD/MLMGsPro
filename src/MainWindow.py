@@ -220,10 +220,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.launch_monitor.resume()
 
     def shot_sent(self, balldata):
-        if getattr(balldata, 'club_data_only', False):
-            self.__update_last_shot_row(balldata)
-        else:
-            self.__add_shot_history_row(balldata)
+        self.__add_shot_history_row(balldata)
 
     def __pause_connector(self):
         self.launch_monitor.pause()
@@ -343,32 +340,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             else:
                 item.setBackground(QColor(MainWindow.good_putt_color))
         self.shot_history_table.selectRow(self.shot_history_table.rowCount() - 1)
-
-    def __update_last_shot_row(self, balldata: BallData):
-        row = self.shot_history_table.rowCount() - 1
-        if row < 0:
-            self.__add_shot_history_row(balldata)
-            return
-        metrics_to_update = (BallMetrics.ANGLE_OF_ATTACK, BallMetrics.CLUB_PATH)
-        for metric in metrics_to_update:
-            column = list(BallData.properties).index(metric) + 1
-            value = str(getattr(balldata, metric))
-            item = self.shot_history_table.item(row, column)
-            if item is None:
-                item = QTableWidgetItem(value)
-                item.setFlags(item.flags() ^ Qt.ItemIsEditable)
-                self.shot_history_table.setItem(row, column, item)
-            else:
-                item.setText(value)
-            if balldata.putt_type is None:
-                item.setBackground(QColor(MainWindow.good_shot_color))
-            else:
-                item.setBackground(QColor(MainWindow.good_putt_color))
-        self.log_message(
-            LogMessageTypes.LOGS,
-            LogMessageSystems.GSPRO_CONNECT,
-            f"Club data update: {balldata.to_json()}"
-        )
 
     def __find_edit_fields(self):
         layouts = (self.edit_field_layout.itemAt(i) for i in range(self.edit_field_layout.count()))
