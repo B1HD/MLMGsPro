@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QShowEvent, QFont, QColor, QPalette
-from PySide6.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QTextEdit, QHBoxLayout
+from PySide6.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QTextEdit, QHBoxLayout, QVBoxLayout
 from src.SettingsForm import SettingsForm
 from src.MainWindow_ui import Ui_MainWindow
 from src.appdata import AppDataPaths
@@ -21,6 +21,7 @@ from src.PuttingForm import PuttingForm
 from src.gspro_connection import GSProConnection
 from src.device_launch_monitor_screenshot import DeviceLaunchMonitorScreenshot
 from src.putting import Putting
+from src.shot_analytics_widget import ShotAnalyticsWidget
 
 
 @dataclass
@@ -53,6 +54,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.putting_settings = PuttingSettings(self.app_paths)
         self.putting_settings_form = PuttingForm(main_window=self)
         self.putting = Putting(main_window=self)
+        self.analytics_widget = None
         self.setWindowTitle(f"{MainWindow.app_name} {MainWindow.version}")
 
         # Initialize slider default values
@@ -127,6 +129,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.pause_button.setEnabled(False)
         self.settings_form.saved.connect(self.__settings_saved)
         self.__find_edit_fields()
+        self.__setup_analytics_tab()
 
         # --- Initialize the Sliders ---
         # Slider for saturation threshold (shot data)
@@ -149,6 +152,29 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.obsSlider.valueChanged.connect(self.update_obs_threshold)
         if hasattr(self.launch_monitor, 'device_worker'):
             self.launch_monitor.device_worker.saturationChanged.connect(self.update_saturation_display)
+
+    def __setup_analytics_tab(self):
+        if not hasattr(self, 'analytics_tab'):
+            return
+        if self.analytics_widget is None:
+            self.analytics_widget = ShotAnalyticsWidget(self)
+        layout = getattr(self, 'analytics_layout', None)
+        if layout is None:
+            layout = self.analytics_tab.layout()
+        if layout is None:
+            layout = QVBoxLayout(self.analytics_tab)
+            layout.setContentsMargins(0, 0, 0, 0)
+        else:
+            while layout.count():
+                item = layout.takeAt(0)
+                widget = item.widget()
+                if widget is not None:
+                    widget.setParent(None)
+        layout.addWidget(self.analytics_widget)
+        if hasattr(self.main_tab, 'indexOf'):
+            index = self.main_tab.indexOf(self.analytics_tab)
+            if index != -1:
+                self.main_tab.setTabText(index, 'Analytics')
 
     def update_saturation_display(self, saturation):
             """Slot to update the saturation display label."""
@@ -221,6 +247,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def shot_sent(self, balldata):
         self.__add_shot_history_row(balldata)
+        self.__update_analytics(balldata, partial_update=False)
 
     def __pause_connector(self):
         self.launch_monitor.pause()
@@ -340,6 +367,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             else:
                 item.setBackground(QColor(MainWindow.good_putt_color))
         self.shot_history_table.selectRow(self.shot_history_table.rowCount() - 1)
+
+    def __update_analytics(self, balldata, partial_update: bool):
+        if self.analytics_widget is not None and balldata is not None:
+            self.analytics_widget.update_metrics(balldata, partial_update)
+
+    def analytics_partial_update(self, balldata, partial_update: bool):
+        self.__update_analytics(balldata, partial_update)
 
     def __find_edit_fields(self):
         layouts = (self.edit_field_layout.itemAt(i) for i in range(self.edit_field_layout.count()))

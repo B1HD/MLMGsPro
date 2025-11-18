@@ -31,6 +31,8 @@ class DeviceLaunchMonitorScreenshot(DeviceBase):
         self.device_worker.shot.connect(self.main_window.gspro_connection.send_shot_worker.run)
         self.device_worker.bad_shot.connect(self.__bad_shot)
         self.device_worker.too_many_ghost_shots.connect(self.__too_many_ghost_shots)
+        if hasattr(self.device_worker, 'metrics'):
+            self.device_worker.metrics.connect(self.main_window.analytics_partial_update)
 
     def __bad_shot(self, balldata):
         self.main_window.shot_sent(balldata)
