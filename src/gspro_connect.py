@@ -65,16 +65,19 @@ class GSProConnect(QObject):
 
     def launch_ball(self, ball_data: BallData) -> None:
         if self._connected:
+            shot_number = ball_data.gspro_shot_number if ball_data.gspro_shot_number is not None else self._shot_number
             device = {
                 "DeviceID": self._device_id,
                 "Units": self._units,
-                "ShotNumber": self._shot_number,
+                "ShotNumber": shot_number,
                 "APIversion": self._api_version
             }
             payload = device | ball_data.to_gspro()
             logging.debug(f'Launch Ball payload: {payload} ball_data.to_gspro(): {ball_data.to_gspro()}')
             self.send_msg(json.dumps(payload).encode("utf-8"))
-            self._shot_number += 1
+            if ball_data.gspro_shot_number is None:
+                ball_data.gspro_shot_number = shot_number
+                self._shot_number += 1
 
     def check_for_message(self):
         message = bytes(0)

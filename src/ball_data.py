@@ -140,6 +140,12 @@ class BallData:
         self.launch_monitor = None
         self.corrections = {}
         self.errors = {}
+        self.contains_ball_data = True
+        self.contains_club_data = True
+        self.club_data_only = False
+        self.gspro_shot_number = None
+        self.delayed_metrics_pending = False
+        self.delayed_metrics_update = False
         for key in BallData.properties:
             setattr(self, key, 0)
         for dictionary in initial_data:
@@ -190,8 +196,8 @@ class BallData:
                 "ClosureRate": 0
             },
             "ShotDataOptions": {
-                "ContainsBallData": True,
-                "ContainsClubData": True,
+                "ContainsBallData": self.contains_ball_data,
+                "ContainsClubData": self.contains_club_data,
                 "LaunchMonitorIsReady": True,
                 "LaunchMonitorBallDetected": True,
                 "IsHeartBeat": False
@@ -292,12 +298,12 @@ class BallData:
             # Strip non ascii chars and commas
             ocr_result = re.sub(r',', r'', re.sub(r'[^\x00-\x7f]', r'', ocr_result))
             logging.debug(f'remove non ASCII {roi}: {ocr_result.strip()}')
-            cleaned_result = re.findall(r"[LR]?[-+]?(?:\d*\.*\d+)[LR]?", ocr_result)
+            cleaned_result = re.findall(r"[LR]?\s*[-+]?(?:\d*\.*\d+)\s*[LR]?", ocr_result)
             if isinstance(cleaned_result, list or tuple) and len(cleaned_result) > 0:
                 cleaned_result = cleaned_result[0]
             logging.debug(f'cleaned result {roi}: {cleaned_result}')
             if len(cleaned_result) > 0:
-                cleaned_result = cleaned_result.strip()
+                cleaned_result = re.sub(r'\s+', '', cleaned_result.strip())
             if len(cleaned_result) <= 0:
                 logging.debug(f"Value for {BallData.properties[roi]} is empty")
                 cleaned_result = '0'
