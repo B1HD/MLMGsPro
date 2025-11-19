@@ -373,6 +373,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.launch_monitor.resume()
 
     def shot_sent(self, balldata):
+        if balldata is None:
+            return
+        is_delayed_update = (
+            getattr(balldata, 'reuse_last_shot_number', False)
+            and not getattr(balldata, 'include_ball_data', True)
+        )
+        if is_delayed_update:
+            self.__refresh_last_shot_history_row(balldata, partial_update=True)
+            self._last_sent_shot = balldata.__copy__()
+            return
         self.__add_shot_history_row(balldata)
         self.__update_analytics(balldata, partial_update=False)
         self._last_sent_shot = balldata.__copy__()
