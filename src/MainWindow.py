@@ -277,6 +277,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self._test_metrics_data.angle_of_attack = round(random.uniform(-6, 6), 1)
         self._test_metrics_data.path = round(random.uniform(-5, 5), 1)
         self.__display_metrics_in_fields(self._test_metrics_data)
+        self.__refresh_last_shot_history_row(self._test_metrics_data)
         self.__update_analytics(self._test_metrics_data, partial_update=True)
 
     def __send_test_shot_to_gspro(self, balldata: BallData) -> None:
@@ -445,9 +446,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 value = 'Error'
             elif len(balldata.corrections) > 0 and metric in balldata.corrections and len(balldata.corrections[metric]):
                 correction = True
-                value = str(getattr(balldata, metric))
+                value = self.__format_metric_display(getattr(balldata, metric))
             else:
-                value = str(getattr(balldata, metric))
+                value = self.__format_metric_display(getattr(balldata, metric))
             item = QTableWidgetItem(value)
             item.setTextAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
             item.setFlags(item.flags() ^ Qt.ItemIsEditable)
@@ -495,6 +496,27 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.analytics_widget.update_metrics(balldata, partial_update)
 
     def analytics_partial_update(self, balldata, partial_update: bool):
+        if partial_update:
+            self.__refresh_last_shot_history_row(balldata)
+        self.__update_analytics(balldata, partial_update)
+
+    def __refresh_last_shot_history_row(self, balldata: BallData) -> None:
+        if self.shot_history_table.rowCount() == 0 or balldata is None:
+            return
+        row = self.shot_history_table.rowCount() - 1
+        column = 1
+        for metric in BallData.properties:
+            if hasattr(balldata, metric):
+                value = getattr(balldata, metric)
+                if value not in (None, '', BallData.invalid_value):
+                    item = self.shot_history_table.item(row, column)
+                    if item is None:
+                        item = QTableWidgetItem()
+                        item.setFlags(item.flags() ^ Qt.ItemIsEditable)
+                        self.shot_history_table.setItem(row, column, item)
+                    item.setText(self.__format_metric_display(value))
+            column += 1
+
         self.__update_analytics(balldata, partial_update)
 
     def __find_edit_fields(self):
