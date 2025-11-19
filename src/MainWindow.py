@@ -4,6 +4,7 @@ import random
 import webbrowser
 from dataclasses import dataclass
 from datetime import datetime
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QShowEvent, QFont, QColor, QPalette
 from PySide6.QtWidgets import (
@@ -44,6 +45,7 @@ class LogTableCols:
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
+    test_shot_generated = Signal(object)
     version = 'V1.04.20'
     app_name = 'MLM2PRO-GSPro-Connector'
     good_shot_color = '#62ff00'
@@ -79,6 +81,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.__setup_ui()
         self.__setup_connections()
         self.__auto_start()
+        self.test_shot_generated.connect(self.gspro_connection.send_shot_worker.run)
 
     def __setup_logging(self):
         settings = Settings(self.app_paths)
@@ -265,6 +268,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         token = self._test_metrics_token
         self.__display_metrics_in_fields(balldata)
         self.__update_analytics(balldata, partial_update=False)
+        self.__send_test_shot_to_gspro(balldata)
         QTimer.singleShot(1500, lambda: self.__apply_delayed_test_metrics(token))
 
     def __apply_delayed_test_metrics(self, token: int):
@@ -274,6 +278,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self._test_metrics_data.path = round(random.uniform(-5, 5), 1)
         self.__display_metrics_in_fields(self._test_metrics_data)
         self.__update_analytics(self._test_metrics_data, partial_update=True)
+
+    def __send_test_shot_to_gspro(self, balldata: BallData) -> None:
+        if not self.gspro_connection.connected:
+            self.log_message(
+                LogMessageTypes.LOG_WINDOW,
+                LogMessageSystems.CONNECTOR,
+                'Cannot send test shot because GSPro is not connected.'
+            )
+            return
+        if hasattr(self, 'test_shot_generated'):
+            self.test_shot_generated.emit(balldata)
+        else:
+            self.gspro_connection.send_shot_worker.run(balldata)
 
     def __display_metrics_in_fields(self, balldata: BallData):
         for metric, edit in self.edit_fields.items():
