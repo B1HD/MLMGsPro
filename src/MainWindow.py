@@ -46,6 +46,7 @@ class LogTableCols:
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     test_shot_generated = Signal(object)
+    delayed_metrics_ready = Signal(object)
     version = 'V1.04.20'
     app_name = 'MLM2PRO-GSPro-Connector'
     good_shot_color = '#62ff00'
@@ -71,6 +72,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.analytics_widget = None
         self._test_metrics_data = None
         self._test_metrics_token = 0
+        self._last_sent_shot = None
         self.setWindowTitle(f"{MainWindow.app_name} {MainWindow.version}")
 
         # Initialize slider default values
@@ -82,6 +84,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.__setup_connections()
         self.__auto_start()
         self.test_shot_generated.connect(self.gspro_connection.send_shot_worker.run)
+        self.delayed_metrics_ready.connect(self.gspro_connection.send_shot_worker.run)
 
     def __setup_logging(self):
         settings = Settings(self.app_paths)
@@ -277,6 +280,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self._test_metrics_data.angle_of_attack = round(random.uniform(-6, 6), 1)
         self._test_metrics_data.path = round(random.uniform(-5, 5), 1)
         self.__display_metrics_in_fields(self._test_metrics_data)
+        self.analytics_partial_update(self._test_metrics_data, partial_update=True)
         self.__refresh_last_shot_history_row(self._test_metrics_data)
         self.__update_analytics(self._test_metrics_data, partial_update=True)
 
@@ -371,6 +375,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def shot_sent(self, balldata):
         self.__add_shot_history_row(balldata)
         self.__update_analytics(balldata, partial_update=False)
+        self._last_sent_shot = balldata.__copy__()
 
     def __pause_connector(self):
         self.launch_monitor.pause()
@@ -498,6 +503,65 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def analytics_partial_update(self, balldata, partial_update: bool):
         if partial_update:
             self.__refresh_last_shot_history_row(balldata)
+            self.__maybe_send_delayed_club_metrics(balldata)
+        self.__update_analytics(balldata, partial_update)
+
+    def __maybe_send_delayed_club_metrics(self, balldata: BallData) -> None:
+        if (
+            balldata is None
+            or not self.gspro_connection.connected
+            or self._last_sent_shot is None
+        ):
+            return
+        if not self.__is_same_shot(balldata, self._last_sent_shot):
+            return
+        updated = False
+        for metric in (BallMetrics.CLUB_PATH, BallMetrics.ANGLE_OF_ATTACK):
+            value = getattr(balldata, metric, BallData.invalid_value)
+            if value in (None, '', BallData.invalid_value):
+                continue
+            if getattr(self._last_sent_shot, metric, BallData.invalid_value) == value:
+                continue
+            setattr(self._last_sent_shot, metric, value)
+            updated = True
+        if not updated:
+            return
+        payload = self._last_sent_shot.__copy__()
+        payload.include_ball_data = False
+        payload.include_club_data = True
+        payload.reuse_last_shot_number = True
+        if hasattr(self, 'delayed_metrics_ready'):
+            self.delayed_metrics_ready.emit(payload)
+        else:
+            self.gspro_connection.send_shot_worker.run(payload)
+
+    def __is_same_shot(self, candidate: BallData, reference: BallData) -> bool:
+        key_metrics = (
+            BallMetrics.SPEED,
+            BallMetrics.TOTAL_SPIN,
+            BallMetrics.HLA,
+            BallMetrics.VLA,
+            BallMetrics.CLUB_SPEED,
+            BallMetrics.BACK_SPIN,
+            BallMetrics.SIDE_SPIN,
+        )
+        for metric in key_metrics:
+            candidate_value = getattr(candidate, metric, None)
+            reference_value = getattr(reference, metric, None)
+            if candidate_value in (None, '', BallData.invalid_value) or reference_value in (None, '', BallData.invalid_value):
+                continue
+            try:
+                if isinstance(candidate_value, float) or isinstance(reference_value, float):
+                    if abs(float(candidate_value) - float(reference_value)) > 0.01:
+                        return False
+                else:
+                    if candidate_value != reference_value:
+                        return False
+            except TypeError:
+                if candidate_value != reference_value:
+                    return False
+        return True
+
         self.__update_analytics(balldata, partial_update)
 
     def __refresh_last_shot_history_row(self, balldata: BallData) -> None:
