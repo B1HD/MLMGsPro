@@ -502,6 +502,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def analytics_partial_update(self, balldata, partial_update: bool):
         if partial_update:
+            self.__refresh_last_shot_history_row(balldata, partial_update=partial_update)
+            self.__maybe_send_delayed_club_metrics(balldata)
+            return
             self.__refresh_last_shot_history_row(balldata)
             self.__maybe_send_delayed_club_metrics(balldata)
         self.__update_analytics(balldata, partial_update)
@@ -562,6 +565,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     return False
         return True
 
+    def __refresh_last_shot_history_row(self, balldata: BallData, partial_update: bool = False) -> None:
         self.__update_analytics(balldata, partial_update)
 
     def __refresh_last_shot_history_row(self, balldata: BallData) -> None:
@@ -581,6 +585,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     item.setText(self.__format_metric_display(value))
             column += 1
 
+        if partial_update:
+            self.__update_analytics(balldata, partial_update)
         self.__update_analytics(balldata, partial_update)
 
     def __find_edit_fields(self):
