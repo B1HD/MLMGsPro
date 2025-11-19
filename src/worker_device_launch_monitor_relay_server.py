@@ -31,12 +31,7 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
         self._socket.settimeout(1)
 
         # Grayscale detection configuration
-        self.capture_region = {
-            "left": 3814,
-            "top": 14,
-            "width": 86,   # 3900 - 3814
-            "height": 236  # 250 - 14
-        }
+        self.capture_region = self.__load_capture_region()
         self.saturation_threshold = 13
         self.required_consecutive_frames = 2
         self.check_interval = 0.5  # Time in seconds between checks
@@ -174,3 +169,21 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
         mean_saturation = np.mean(hsv[:, :, 1])
         logging.debug(f'{self.name}: Mean saturation = {mean_saturation:.2f}')
         return mean_saturation < self.saturation_threshold
+
+    def __load_capture_region(self):
+        region = getattr(self.settings, 'relay_server_capture_region', None)
+        defaults = {
+            "left": 3814,
+            "top": 14,
+            "width": 86,
+            "height": 236
+        }
+        if region is None:
+            return defaults
+        capture_region = {}
+        for key, fallback in defaults.items():
+            try:
+                capture_region[key] = int(region.get(key, fallback))
+            except (TypeError, ValueError):
+                capture_region[key] = fallback
+        return capture_region
