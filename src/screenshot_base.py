@@ -35,6 +35,7 @@ class ScreenshotBase(ViewBox):
         self.previous_balldata = None
         self.previous_balldata_error = None
         self.balldata = None
+        self.partial_update = False
         self.__setupUi()
         self.setAspectLocked(True)
         self.setMenuEnabled(False)
@@ -161,6 +162,7 @@ class ScreenshotBase(ViewBox):
         self.balldata = BallData()
         self.balldata.club = self.selected_club
         self.new_shot = False
+        self.partial_update = False
         fallback_tesserocr_api = None
         if self.__class__.__name__ == 'ScreenshotExPutt':
             train_file = 'exputt'
@@ -274,6 +276,7 @@ class ScreenshotBase(ViewBox):
             else:
                 diff_count = 1
             self.new_shot = diff_count > 0
+            self.partial_update = False
             if self.new_shot:
                 if len(self.balldata.errors) > 0:
                     self.balldata.good_shot = False
@@ -294,6 +297,7 @@ class ScreenshotBase(ViewBox):
                         # If there is only 1 metric different then it's likely this is not a new shot
                         # for example if rapsodo times out or someone changes clubs on the rapsodo
                         self.new_shot = False
+                        self.partial_update = True
                         logging.debug('Only 1 metric different from previous shot, probably not a new shot, ignoring')
                     else:
                         # Good shot

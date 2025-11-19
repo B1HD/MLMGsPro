@@ -10,6 +10,7 @@ class WorkerScreenshotBase(WorkerBase):
     bad_shot = Signal(object or None)
     too_many_ghost_shots = Signal()
     same_shot = Signal()
+    metrics = Signal(object, bool)
 
 
     def __init__(self, settings: Settings):
@@ -53,6 +54,10 @@ class WorkerScreenshotBase(WorkerBase):
                     self.bad_shot.emit(screenshot.balldata)
             else:
                 logging.info(f"Process {self.name} same shot do not send to GSPro")
+                if getattr(screenshot, 'partial_update', False):
+                    self.metrics.emit(screenshot.balldata.__copy__(), True)
                 self.same_shot.emit()
         else:
+            if getattr(screenshot, 'partial_update', False):
+                self.metrics.emit(screenshot.balldata.__copy__(), True)
             self.same_shot.emit()

@@ -140,6 +140,10 @@ class BallData:
         self.launch_monitor = None
         self.corrections = {}
         self.errors = {}
+        # Flags used when communicating with GSPro
+        self.include_ball_data = True
+        self.include_club_data = True
+        self.reuse_last_shot_number = False
         for key in BallData.properties:
             setattr(self, key, 0)
         for dictionary in initial_data:
@@ -154,8 +158,23 @@ class BallData:
         return obj
 
     def to_json(self):
-        return json.dumps(self,
-                          default=lambda o: dict((key, value) for key, value in o.__dict__.items() if key != 'errors' and key != 'good_shot'))
+        return json.dumps(
+            self,
+            default=lambda o: dict(
+                (
+                    key,
+                    value
+                )
+                for key, value in o.__dict__.items()
+                if key not in (
+                    'errors',
+                    'good_shot',
+                    'include_ball_data',
+                    'include_club_data',
+                    'reuse_last_shot_number'
+                )
+            )
+        )
 
     @staticmethod
     def ballcolor_as_list():
@@ -190,13 +209,17 @@ class BallData:
                 "ClosureRate": 0
             },
             "ShotDataOptions": {
-                "ContainsBallData": True,
-                "ContainsClubData": True,
+                "ContainsBallData": self.include_ball_data,
+                "ContainsClubData": self.include_club_data,
                 "LaunchMonitorIsReady": True,
                 "LaunchMonitorBallDetected": True,
                 "IsHeartBeat": False
             }
         }
+        if not self.include_ball_data:
+            payload["BallData"] = {}
+        if not self.include_club_data:
+            payload["ClubData"] = {}
         return payload
 
     def from_gspro(self, payload):
