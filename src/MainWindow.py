@@ -5,6 +5,7 @@ import webbrowser
 from dataclasses import dataclass
 from datetime import datetime
 from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QShowEvent, QFont, QColor, QPalette
 from PySide6.QtWidgets import (
     QMainWindow,
@@ -17,6 +18,7 @@ from PySide6.QtWidgets import (
     QSpacerItem,
     QSizePolicy,
 )
+from PySide6.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QTextEdit, QHBoxLayout, QVBoxLayout
 from src.SettingsForm import SettingsForm
 from src.MainWindow_ui import Ui_MainWindow
 from src.appdata import AppDataPaths
@@ -279,6 +281,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self._test_metrics_data.path = round(random.uniform(-5, 5), 1)
         self.__display_metrics_in_fields(self._test_metrics_data)
         self.analytics_partial_update(self._test_metrics_data, partial_update=True)
+        self.__refresh_last_shot_history_row(self._test_metrics_data)
+        self.__update_analytics(self._test_metrics_data, partial_update=True)
 
     def __send_test_shot_to_gspro(self, balldata: BallData) -> None:
         if not self.gspro_connection.connected:
@@ -501,6 +505,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.__refresh_last_shot_history_row(balldata, partial_update=partial_update)
             self.__maybe_send_delayed_club_metrics(balldata)
             return
+            self.__refresh_last_shot_history_row(balldata)
+            self.__maybe_send_delayed_club_metrics(balldata)
         self.__update_analytics(balldata, partial_update)
 
     def __maybe_send_delayed_club_metrics(self, balldata: BallData) -> None:
@@ -560,6 +566,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         return True
 
     def __refresh_last_shot_history_row(self, balldata: BallData, partial_update: bool = False) -> None:
+        self.__update_analytics(balldata, partial_update)
+
+    def __refresh_last_shot_history_row(self, balldata: BallData) -> None:
         if self.shot_history_table.rowCount() == 0 or balldata is None:
             return
         row = self.shot_history_table.rowCount() - 1
@@ -578,6 +587,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         if partial_update:
             self.__update_analytics(balldata, partial_update)
+        self.__update_analytics(balldata, partial_update)
 
     def __find_edit_fields(self):
         layouts = (self.edit_field_layout.itemAt(i) for i in range(self.edit_field_layout.count()))
