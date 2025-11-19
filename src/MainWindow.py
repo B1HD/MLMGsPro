@@ -5,6 +5,7 @@ import webbrowser
 from dataclasses import dataclass
 from datetime import datetime
 from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QShowEvent, QFont, QColor, QPalette
 from PySide6.QtWidgets import (
     QMainWindow,
@@ -17,6 +18,7 @@ from PySide6.QtWidgets import (
     QSpacerItem,
     QSizePolicy,
 )
+from PySide6.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QTextEdit, QHBoxLayout, QVBoxLayout
 from src.SettingsForm import SettingsForm
 from src.MainWindow_ui import Ui_MainWindow
 from src.appdata import AppDataPaths
@@ -514,6 +516,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         self.shot_history_table.setItem(row, column, item)
                     item.setText(self.__format_metric_display(value))
             column += 1
+
+        self.__update_analytics(balldata, partial_update)
 
     def __find_edit_fields(self):
         layouts = (self.edit_field_layout.itemAt(i) for i in range(self.edit_field_layout.count()))
