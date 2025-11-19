@@ -6,6 +6,17 @@ from dataclasses import dataclass
 from datetime import datetime
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QShowEvent, QFont, QColor, QPalette
+from PySide6.QtWidgets import (
+    QMainWindow,
+    QMessageBox,
+    QTableWidgetItem,
+    QTextEdit,
+    QHBoxLayout,
+    QVBoxLayout,
+    QPushButton,
+    QSpacerItem,
+    QSizePolicy,
+)
 from PySide6.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QTextEdit, QHBoxLayout, QVBoxLayout
 from src.SettingsForm import SettingsForm
 from src.MainWindow_ui import Ui_MainWindow
@@ -98,6 +109,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def __setup_ui(self):
         self.__setup_launch_monitor()
+        self.__ensure_test_button()
         self.actionExit.triggered.connect(self.__exit)
         self.actionAbout.triggered.connect(self.__about)
         self.actionSettings.triggered.connect(self.__settings)
@@ -150,6 +162,41 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.obsSlider.setSingleStep(1)
         self.obsSlider.setValue(self.current_obs_threshold)
         self.obsValueLabel.setText(str(self.current_obs_threshold))
+
+    def __ensure_test_button(self):
+        """Make sure the Test button exists even if the UI file was not regenerated."""
+        if hasattr(self, 'test_metrics_button') and self.test_metrics_button is not None:
+            return
+        if not hasattr(self, 'connector_tab'):
+            return
+        button = QPushButton(self.connector_tab)
+        button.setObjectName('test_metrics_button')
+        button.setText('Test')
+        button.setToolTip('Inject sample shot metrics to test the UI')
+        button.setSizePolicy(QSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed))
+        button.setMaximumHeight(40)
+        button.setMinimumWidth(90)
+        self.test_metrics_button = button
+
+        layout = getattr(self, 'test_controls_layout', None)
+        if layout is None:
+            layout = QHBoxLayout()
+            layout.setObjectName('test_controls_layout')
+            if hasattr(self, 'verticalLayout_7') and self.verticalLayout_7 is not None:
+                self.verticalLayout_7.insertLayout(0, layout)
+            else:
+                self.connector_tab.setLayout(layout)
+            self.test_controls_layout = layout
+        layout.insertWidget(0, button)
+        needs_spacer = (
+            layout.count() == 1
+            or layout.itemAt(layout.count() - 1) is None
+            or layout.itemAt(layout.count() - 1).spacerItem() is None
+        )
+        if needs_spacer:
+            spacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+            layout.addSpacerItem(spacer)
+            self.test_controls_spacer = spacer
 
     def __setup_connections(self):
         # Connect slider value changes to their respective update functions
