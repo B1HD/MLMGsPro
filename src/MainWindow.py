@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QSpacerItem,
     QSizePolicy,
 )
+from PySide6.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QTextEdit, QHBoxLayout, QVBoxLayout
 from src.SettingsForm import SettingsForm
 from src.MainWindow_ui import Ui_MainWindow
 from src.appdata import AppDataPaths
