@@ -154,13 +154,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.launch_monitor.device_worker.saturationChanged.connect(self.update_saturation_display)
 
     def __setup_analytics_tab(self):
-        if not hasattr(self, 'page_2'):
+        if not hasattr(self, 'analytics_tab'):
             return
         if self.analytics_widget is None:
             self.analytics_widget = ShotAnalyticsWidget(self)
-        layout = self.page_2.layout()
+        layout = getattr(self, 'analytics_layout', None)
         if layout is None:
-            layout = QVBoxLayout(self.page_2)
+            layout = self.analytics_tab.layout()
+        if layout is None:
+            layout = QVBoxLayout(self.analytics_tab)
             layout.setContentsMargins(0, 0, 0, 0)
         else:
             while layout.count():
@@ -169,9 +171,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 if widget is not None:
                     widget.setParent(None)
         layout.addWidget(self.analytics_widget)
-        index = self.main_tab.indexOf(self.page_2)
-        if index != -1:
-            self.main_tab.setTabText(index, 'Analytics')
+        if hasattr(self.main_tab, 'indexOf'):
+            index = self.main_tab.indexOf(self.analytics_tab)
+            if index != -1:
+                self.main_tab.setTabText(index, 'Analytics')
 
     def update_saturation_display(self, saturation):
             """Slot to update the saturation display label."""
