@@ -55,6 +55,8 @@ class DeviceLaunchMonitorRelayServer(DeviceBase):
         if self.device_worker is None:
             #QMessageBox.warning(self.main_window, "Starting ELM connector", 'Before starting the relay server ensure your launch monitor is turned on and ready for connection.')
             self.device_worker = WorkerDeviceLaunchMonitorRelayServer(self.main_window.settings, self.main_window.gspro_connection.gspro_connect)
+            if hasattr(self.device_worker, 'saturationChanged'):
+                self.device_worker.saturationChanged.connect(self.main_window.update_saturation_display)
             self.setup_device_thread()
             self.device_worker.start()
             self.device_worker.club_selected(self.main_window.gspro_connection.current_club)

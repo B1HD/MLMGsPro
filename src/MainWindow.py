@@ -208,8 +208,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Connect slider value changes to their respective update functions
         self.saturationSlider.valueChanged.connect(self.update_saturation_threshold)
         self.obsSlider.valueChanged.connect(self.update_obs_threshold)
-        if hasattr(self.launch_monitor, 'device_worker'):
-            self.launch_monitor.device_worker.saturationChanged.connect(self.update_saturation_display)
+        worker = getattr(self.launch_monitor, 'device_worker', None)
+        if worker is not None and hasattr(worker, 'saturationChanged'):
+            worker.saturationChanged.connect(self.update_saturation_display)
 
     def __setup_analytics_tab(self):
         if not hasattr(self, 'analytics_tab'):

@@ -14,6 +14,7 @@ from src.worker_base import WorkerBase
 
 class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
     relay_server_shot = Signal(object or None)
+    saturationChanged = Signal(float)
     listening = Signal()
     connected = Signal()
     finished = Signal()
@@ -159,15 +160,17 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
 
     def is_grayscale_image(self, frame):
         """
-        Determines if the provided image frame is predominantly grayscale.
+        Determines if the provided image frame is predominantly grayscale while
+        emitting the sampled saturation so the UI can reflect the live value.
         Args:
             frame (numpy.ndarray): The image frame to analyze.
         Returns:
             bool: True if the image is grayscale, False otherwise.
         """
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        mean_saturation = np.mean(hsv[:, :, 1])
+        mean_saturation = float(np.mean(hsv[:, :, 1]))
         logging.debug(f'{self.name}: Mean saturation = {mean_saturation:.2f}')
+        self.saturationChanged.emit(mean_saturation)
         return mean_saturation < self.saturation_threshold
 
     def __load_capture_region(self):
