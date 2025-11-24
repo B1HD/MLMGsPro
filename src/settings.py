@@ -58,7 +58,14 @@ class Settings(SettingsBase):
                 "zoom_images": "No",
                 "relay_server_ip_address": "127.0.0.1",
                 "relay_server_port": 9234,
-                "relay_server_capture_region": _default_relay_capture_region(),
+                "relay_server_capture_region": {
+                    "left": 3814,
+                    "top": 14,
+                    "width": 86,
+                    "height": 236,
+                    "mon": 0
+                   
+                },
                 'auto_start_all_apps': 'No',
                 'keep_log_history': 'No'
             }
