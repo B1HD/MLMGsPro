@@ -96,6 +96,7 @@ class Settings(SettingsBase):
                 "width": 86,
                 "height": 236,
                 "mon": 0
+                "height": 236
             }
             save = True
         if not hasattr(self, 'auto_start_all_apps'):

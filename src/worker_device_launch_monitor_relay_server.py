@@ -185,6 +185,7 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
             "width": 86,
             "height": 236,
             "mon": 0,
+            "height": 236
         }
         if region is None:
             return defaults
