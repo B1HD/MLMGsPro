@@ -14,6 +14,7 @@ from src.worker_base import WorkerBase
 
 class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
     relay_server_shot = Signal(object or None)
+    saturationChanged = Signal(float)
     listening = Signal()
     connected = Signal()
     finished = Signal()
@@ -31,12 +32,7 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
         self._socket.settimeout(1)
 
         # Grayscale detection configuration
-        self.capture_region = {
-            "left": 3814,
-            "top": 14,
-            "width": 86,   # 3900 - 3814
-            "height": 236  # 250 - 14
-        }
+        self.capture_region = self.__load_capture_region()
         self.saturation_threshold = 13
         self.required_consecutive_frames = 2
         self.check_interval = 0.5  # Time in seconds between checks
@@ -54,12 +50,13 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
             self._pause.wait()
 
             # Connect to OBS WebSocket
+            obs_connected = False
             try:
                 self.obs_ws.connect()
+                obs_connected = True
                 logging.debug(f'{self.name}: Connected to OBS WebSocket.')
             except Exception as e:
-                logging.debug(f'{self.name}: Could not connect to OBS WebSocket: {e}')
-                return
+                logging.debug(f'{self.name}: Could not connect to OBS WebSocket, continuing without OBS replay: {e}')
 
             self._socket.bind((self.settings.relay_server_ip_address, self.settings.relay_server_port))
             self._socket.listen(5)
@@ -72,11 +69,12 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
             consecutive_color = 0
 
             with mss() as sct:
+                capture_region = self.__resolve_capture_region(sct)
                 while not self._shutdown.is_set():
                     #
                     # (A) Grayscale detection logic
                     #
-                    screenshot = sct.grab(self.capture_region)
+                    screenshot = sct.grab(capture_region)
                     frame = np.array(screenshot)[:, :, :3]
                     currently_grayscale = self.is_grayscale_image(frame)
 
@@ -99,11 +97,14 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
                         time.sleep(self.wait_after_grayscale)
 
                         # Trigger OBS replay
-                        try:
-                            logging.debug(f'{self.name}: Triggering OBS replay.')
-                            self.obs_ws.call(requests.TriggerHotkeyByName("ReplayBufferSave"))
-                        except Exception as e:
-                            logging.debug(f'{self.name}: Failed to trigger OBS replay: {e}')
+                        if obs_connected:
+                            try:
+                                logging.debug(f'{self.name}: Triggering OBS replay.')
+                                self.obs_ws.call(requests.TriggerHotkeyByName("ReplayBufferSave"))
+                            except Exception as e:
+                                logging.debug(f'{self.name}: Failed to trigger OBS replay: {e}')
+                        else:
+                            logging.debug(f'{self.name}: OBS WebSocket unavailable; skipping replay trigger.')
 
                         logging.debug(f'{self.name}: Resuming processing after grayscale detection.')
                         self.resume()
@@ -164,13 +165,78 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
 
     def is_grayscale_image(self, frame):
         """
-        Determines if the provided image frame is predominantly grayscale.
+        Determines if the provided image frame is predominantly grayscale while
+        emitting the sampled saturation so the UI can reflect the live value.
         Args:
             frame (numpy.ndarray): The image frame to analyze.
         Returns:
             bool: True if the image is grayscale, False otherwise.
         """
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        mean_saturation = np.mean(hsv[:, :, 1])
+        mean_saturation = float(np.mean(hsv[:, :, 1]))
         logging.debug(f'{self.name}: Mean saturation = {mean_saturation:.2f}')
+        self.saturationChanged.emit(mean_saturation)
         return mean_saturation < self.saturation_threshold
+
+    def __load_capture_region(self):
+        region = getattr(self.settings, 'relay_server_capture_region', None)
+        defaults = {
+            "left": 3814,
+            "top": 14,
+            "width": 86,
+            "height": 236,
+            "mon": 0,
+        }
+        if region is None:
+            return defaults
+        capture_region = {}
+        for key, fallback in defaults.items():
+            try:
+                capture_region[key] = int(region.get(key, fallback))
+            except (TypeError, ValueError):
+                capture_region[key] = fallback
+        capture_region["mon"] = max(0, capture_region.get("mon", 0))
+        return capture_region
+
+    def __resolve_capture_region(self, sct):
+        capture_region = dict(self.capture_region)
+        monitors = getattr(sct, "monitors", [])
+        if not monitors:
+            return capture_region
+
+        try:
+            mon_index = int(capture_region.get("mon", 0))
+        except (TypeError, ValueError):
+            mon_index = 0
+        if mon_index < 0 or mon_index >= len(monitors):
+            mon_index = 0
+
+        target_monitor = monitors[0] if mon_index == 0 else monitors[mon_index]
+        base_left = int(target_monitor.get("left", 0))
+        base_top = int(target_monitor.get("top", 0))
+        base_right = base_left + int(target_monitor.get("width", 0))
+        base_bottom = base_top + int(target_monitor.get("height", 0))
+
+        left = int(capture_region.get("left", 0))
+        top = int(capture_region.get("top", 0))
+        if mon_index != 0:
+            left += base_left
+            top += base_top
+
+        width = max(1, int(capture_region.get("width", 1)))
+        height = max(1, int(capture_region.get("height", 1)))
+
+        right = min(left + width, base_right)
+        bottom = min(top + height, base_bottom)
+
+        adjusted_left = max(base_left, left)
+        adjusted_top = max(base_top, top)
+        adjusted_region = {
+            "mon": 0,
+            "left": adjusted_left,
+            "top": adjusted_top,
+            "width": max(1, right - adjusted_left),
+            "height": max(1, bottom - adjusted_top),
+        }
+        logging.debug(f"{self.name}: Using capture region {adjusted_region} (requested monitor {mon_index})")
+        return adjusted_region

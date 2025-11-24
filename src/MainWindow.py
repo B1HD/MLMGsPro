@@ -208,8 +208,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Connect slider value changes to their respective update functions
         self.saturationSlider.valueChanged.connect(self.update_saturation_threshold)
         self.obsSlider.valueChanged.connect(self.update_obs_threshold)
-        if hasattr(self.launch_monitor, 'device_worker'):
-            self.launch_monitor.device_worker.saturationChanged.connect(self.update_saturation_display)
+        worker = getattr(self.launch_monitor, 'device_worker', None)
+        if worker is not None and hasattr(worker, 'saturationChanged'):
+            worker.saturationChanged.connect(self.update_saturation_display)
 
     def __setup_analytics_tab(self):
         if not hasattr(self, 'analytics_tab'):
@@ -235,8 +236,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.main_tab.setTabText(index, 'Analytics')
 
     def update_saturation_display(self, saturation):
-            """Slot to update the saturation display label."""
-            self.currentSaturationLabel.setText(f"Current Saturation: {saturation:.2f}")
+        """Slot to update the saturation display label."""
+        self.currentSaturationLabel.setText(f"Current Saturation: {saturation:.2f}")
     def update_saturation_threshold(self, value):
         # Scale back to a float value (e.g., 25 becomes 2.5)
         self.current_saturation_threshold = value / 10.0
@@ -373,6 +374,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.launch_monitor.resume()
 
     def shot_sent(self, balldata):
+        if balldata is None:
+            return
+        is_delayed_update = (
+            getattr(balldata, 'reuse_last_shot_number', False)
+            and not getattr(balldata, 'include_ball_data', True)
+        )
+        if is_delayed_update:
+            self.__refresh_last_shot_history_row(balldata, partial_update=True)
+            self._last_sent_shot = balldata.__copy__()
+            return
         self.__add_shot_history_row(balldata)
         self.__update_analytics(balldata, partial_update=False)
         self._last_sent_shot = balldata.__copy__()
@@ -505,8 +516,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.__refresh_last_shot_history_row(balldata, partial_update=partial_update)
             self.__maybe_send_delayed_club_metrics(balldata)
             return
-            self.__refresh_last_shot_history_row(balldata)
-            self.__maybe_send_delayed_club_metrics(balldata)
+        self.__refresh_last_shot_history_row(balldata)
+        self.__maybe_send_delayed_club_metrics(balldata)
         self.__update_analytics(balldata, partial_update)
 
     def __maybe_send_delayed_club_metrics(self, balldata: BallData) -> None:
@@ -566,9 +577,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         return True
 
     def __refresh_last_shot_history_row(self, balldata: BallData, partial_update: bool = False) -> None:
-        self.__update_analytics(balldata, partial_update)
-
-    def __refresh_last_shot_history_row(self, balldata: BallData) -> None:
         if self.shot_history_table.rowCount() == 0 or balldata is None:
             return
         row = self.shot_history_table.rowCount() - 1
@@ -587,7 +595,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         if partial_update:
             self.__update_analytics(balldata, partial_update)
-        self.__update_analytics(balldata, partial_update)
 
     def __find_edit_fields(self):
         layouts = (self.edit_field_layout.itemAt(i) for i in range(self.edit_field_layout.count()))
