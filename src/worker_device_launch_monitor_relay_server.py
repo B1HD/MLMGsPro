@@ -183,6 +183,8 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
             "left": 3814,
             "top": 14,
             "width": 86,
+            "height": 236,
+            "mon": 0,
             "height": 236
         }
         if region is None:

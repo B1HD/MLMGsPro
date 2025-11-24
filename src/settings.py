@@ -94,6 +94,8 @@ class Settings(SettingsBase):
                 "left": 3814,
                 "top": 14,
                 "width": 86,
+                "height": 236,
+                "mon": 0
                 "height": 236
             }
             save = True
