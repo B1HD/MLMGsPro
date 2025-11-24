@@ -58,6 +58,12 @@ class SettingsForm(QWidget, Ui_SettingsForm):
             self.settings.default_device = self.default_device_combo.currentText()
             self.settings.relay_server_ip_address = self.relay_server_ip_edit.toPlainText()
             self.settings.relay_server_port = int(self.relay_server_port_edit.toPlainText())
+            capture_region = getattr(self.settings, 'relay_server_capture_region', None) or {}
+            capture_region['left'] = int(self.relay_capture_left_edit.toPlainText())
+            capture_region['top'] = int(self.relay_capture_top_edit.toPlainText())
+            capture_region['width'] = int(self.relay_capture_width_edit.toPlainText())
+            capture_region['height'] = int(self.relay_capture_height_edit.toPlainText())
+            self.settings.relay_server_capture_region = capture_region
             self.settings.auto_start_all_apps = self.auto_start_all_apps_combo.currentText()
             self.settings.keep_log_history = self.log_history_combo.currentText()
             self.settings.mevo_plus['offline_mode'] = self.mevo_offline_mode_combo.currentText()
@@ -101,6 +107,16 @@ class SettingsForm(QWidget, Ui_SettingsForm):
         self.default_device_combo.setCurrentText(device)
         self.relay_server_ip_edit.setPlainText(self.settings.relay_server_ip_address)
         self.relay_server_port_edit.setPlainText(str(self.settings.relay_server_port))
+        capture_region = getattr(self.settings, 'relay_server_capture_region', {
+            'left': '',
+            'top': '',
+            'width': '',
+            'height': ''
+        })
+        self.relay_capture_left_edit.setPlainText(str(capture_region.get('left', '')))
+        self.relay_capture_top_edit.setPlainText(str(capture_region.get('top', '')))
+        self.relay_capture_width_edit.setPlainText(str(capture_region.get('width', '')))
+        self.relay_capture_height_edit.setPlainText(str(capture_region.get('height', '')))
         self.auto_start_all_apps_combo.setCurrentText(self.settings.auto_start_all_apps)
         self.log_history_combo.setCurrentText(self.settings.keep_log_history)
         self.mevo_offline_mode_combo.setCurrentText(self.settings.mevo_plus['offline_mode'])

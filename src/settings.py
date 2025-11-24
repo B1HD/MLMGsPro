@@ -45,6 +45,12 @@ class Settings(SettingsBase):
                 "zoom_images": "No",
                 "relay_server_ip_address": "127.0.0.1",
                 "relay_server_port": 9234,
+                "relay_server_capture_region": {
+                    "left": 3814,
+                    "top": 14,
+                    "width": 86,
+                    "height": 236
+                },
                 'auto_start_all_apps': 'No',
                 'keep_log_history': 'No'
             }
@@ -82,6 +88,15 @@ class Settings(SettingsBase):
             save = True
         if not hasattr(self, 'relay_server_port'):
             self.relay_server_port = 9234
+            save = True
+        if not hasattr(self, 'relay_server_capture_region'):
+            self.relay_server_capture_region = {
+                "left": 3814,
+                "top": 14,
+                "width": 86,
+                "height": 236,
+                "mon": 0
+            }
             save = True
         if not hasattr(self, 'auto_start_all_apps'):
             value = 'No'
