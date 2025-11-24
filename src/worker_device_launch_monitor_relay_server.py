@@ -69,11 +69,12 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
             consecutive_color = 0
 
             with mss() as sct:
+                capture_region = self.__resolve_capture_region(sct)
                 while not self._shutdown.is_set():
                     #
                     # (A) Grayscale detection logic
                     #
-                    screenshot = sct.grab(self.capture_region)
+                    screenshot = sct.grab(capture_region)
                     frame = np.array(screenshot)[:, :, :3]
                     currently_grayscale = self.is_grayscale_image(frame)
 
@@ -194,4 +195,48 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
                 capture_region[key] = int(region.get(key, fallback))
             except (TypeError, ValueError):
                 capture_region[key] = fallback
+        capture_region["mon"] = max(0, capture_region.get("mon", 0))
         return capture_region
+
+    def __resolve_capture_region(self, sct):
+        capture_region = dict(self.capture_region)
+        monitors = getattr(sct, "monitors", [])
+        if not monitors:
+            return capture_region
+
+        try:
+            mon_index = int(capture_region.get("mon", 0))
+        except (TypeError, ValueError):
+            mon_index = 0
+        if mon_index < 0 or mon_index >= len(monitors):
+            mon_index = 0
+
+        target_monitor = monitors[0] if mon_index == 0 else monitors[mon_index]
+        base_left = int(target_monitor.get("left", 0))
+        base_top = int(target_monitor.get("top", 0))
+        base_right = base_left + int(target_monitor.get("width", 0))
+        base_bottom = base_top + int(target_monitor.get("height", 0))
+
+        left = int(capture_region.get("left", 0))
+        top = int(capture_region.get("top", 0))
+        if mon_index != 0:
+            left += base_left
+            top += base_top
+
+        width = max(1, int(capture_region.get("width", 1)))
+        height = max(1, int(capture_region.get("height", 1)))
+
+        right = min(left + width, base_right)
+        bottom = min(top + height, base_bottom)
+
+        adjusted_left = max(base_left, left)
+        adjusted_top = max(base_top, top)
+        adjusted_region = {
+            "mon": 0,
+            "left": adjusted_left,
+            "top": adjusted_top,
+            "width": max(1, right - adjusted_left),
+            "height": max(1, bottom - adjusted_top),
+        }
+        logging.debug(f"{self.name}: Using capture region {adjusted_region} (requested monitor {mon_index})")
+        return adjusted_region

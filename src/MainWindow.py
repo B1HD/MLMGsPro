@@ -236,8 +236,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.main_tab.setTabText(index, 'Analytics')
 
     def update_saturation_display(self, saturation):
-            """Slot to update the saturation display label."""
-            self.currentSaturationLabel.setText(f"Current Saturation: {saturation:.2f}")
+        """Slot to update the saturation display label."""
+        self.currentSaturationLabel.setText(f"Current Saturation: {saturation:.2f}")
     def update_saturation_threshold(self, value):
         # Scale back to a float value (e.g., 25 becomes 2.5)
         self.current_saturation_threshold = value / 10.0
