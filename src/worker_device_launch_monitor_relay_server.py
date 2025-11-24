@@ -50,12 +50,13 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
             self._pause.wait()
 
             # Connect to OBS WebSocket
+            obs_connected = False
             try:
                 self.obs_ws.connect()
+                obs_connected = True
                 logging.debug(f'{self.name}: Connected to OBS WebSocket.')
             except Exception as e:
-                logging.debug(f'{self.name}: Could not connect to OBS WebSocket: {e}')
-                return
+                logging.debug(f'{self.name}: Could not connect to OBS WebSocket, continuing without OBS replay: {e}')
 
             self._socket.bind((self.settings.relay_server_ip_address, self.settings.relay_server_port))
             self._socket.listen(5)
@@ -95,11 +96,14 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
                         time.sleep(self.wait_after_grayscale)
 
                         # Trigger OBS replay
-                        try:
-                            logging.debug(f'{self.name}: Triggering OBS replay.')
-                            self.obs_ws.call(requests.TriggerHotkeyByName("ReplayBufferSave"))
-                        except Exception as e:
-                            logging.debug(f'{self.name}: Failed to trigger OBS replay: {e}')
+                        if obs_connected:
+                            try:
+                                logging.debug(f'{self.name}: Triggering OBS replay.')
+                                self.obs_ws.call(requests.TriggerHotkeyByName("ReplayBufferSave"))
+                            except Exception as e:
+                                logging.debug(f'{self.name}: Failed to trigger OBS replay: {e}')
+                        else:
+                            logging.debug(f'{self.name}: OBS WebSocket unavailable; skipping replay trigger.')
 
                         logging.debug(f'{self.name}: Resuming processing after grayscale detection.')
                         self.resume()
