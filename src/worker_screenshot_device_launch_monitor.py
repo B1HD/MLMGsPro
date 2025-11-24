@@ -20,8 +20,8 @@ from PySide6.QtCore import Signal
 # Configuration for Screen Region
 # --------------------------------------------------
 CAPTURE_REGION = {
-    "left": 3814,
-    "top": 14,
+    "left": 2304,
+    "top": 87,
     "width": 86,   # (3900 - 3814)
     "height": 236  # (250 - 14)
 }
