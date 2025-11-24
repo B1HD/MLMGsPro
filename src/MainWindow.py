@@ -245,8 +245,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         logging.debug(f"Saturation threshold updated: {self.current_saturation_threshold}")
 
     def update_obs_threshold(self, value):
-        self.current_obs_threshold = value
-        self.obsValueLabel.setText(str(self.current_obs_threshold))
+        # Scale back to a float value (e.g., 160 becomes 16.0)
+        self.current_obs_threshold = value / 10.0
+        self.obsValueLabel.setText(f"{self.current_obs_threshold:.1f}")
         logging.debug(f"OBS threshold updated: {self.current_obs_threshold}")
 
     def __run_test_metrics(self):
