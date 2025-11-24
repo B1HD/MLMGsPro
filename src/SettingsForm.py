@@ -43,7 +43,7 @@ class SettingsForm(QWidget, Ui_SettingsForm):
     def launchmonitor_as_list():
         keys = []
         for key in LaunchMonitor.__dict__:
-            if key != '__' not in key:
+            if '__' not in key:
                 keys.append(getattr(LaunchMonitor, key))
         return keys
 
