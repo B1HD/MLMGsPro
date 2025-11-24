@@ -14,6 +14,7 @@ from src.worker_base import WorkerBase
 
 class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
     relay_server_shot = Signal(object or None)
+    saturationChanged = Signal(float)
     listening = Signal()
     connected = Signal()
     finished = Signal()
@@ -31,12 +32,7 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
         self._socket.settimeout(1)
 
         # Grayscale detection configuration
-        self.capture_region = {
-            "left": 3814,
-            "top": 14,
-            "width": 86,   # 3900 - 3814
-            "height": 236  # 250 - 14
-        }
+        self.capture_region = self.__load_capture_region()
         self.saturation_threshold = 13
         self.required_consecutive_frames = 2
         self.check_interval = 0.5  # Time in seconds between checks
@@ -54,12 +50,13 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
             self._pause.wait()
 
             # Connect to OBS WebSocket
+            obs_connected = False
             try:
                 self.obs_ws.connect()
+                obs_connected = True
                 logging.debug(f'{self.name}: Connected to OBS WebSocket.')
             except Exception as e:
-                logging.debug(f'{self.name}: Could not connect to OBS WebSocket: {e}')
-                return
+                logging.debug(f'{self.name}: Could not connect to OBS WebSocket, continuing without OBS replay: {e}')
 
             self._socket.bind((self.settings.relay_server_ip_address, self.settings.relay_server_port))
             self._socket.listen(5)
@@ -99,11 +96,14 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
                         time.sleep(self.wait_after_grayscale)
 
                         # Trigger OBS replay
-                        try:
-                            logging.debug(f'{self.name}: Triggering OBS replay.')
-                            self.obs_ws.call(requests.TriggerHotkeyByName("ReplayBufferSave"))
-                        except Exception as e:
-                            logging.debug(f'{self.name}: Failed to trigger OBS replay: {e}')
+                        if obs_connected:
+                            try:
+                                logging.debug(f'{self.name}: Triggering OBS replay.')
+                                self.obs_ws.call(requests.TriggerHotkeyByName("ReplayBufferSave"))
+                            except Exception as e:
+                                logging.debug(f'{self.name}: Failed to trigger OBS replay: {e}')
+                        else:
+                            logging.debug(f'{self.name}: OBS WebSocket unavailable; skipping replay trigger.')
 
                         logging.debug(f'{self.name}: Resuming processing after grayscale detection.')
                         self.resume()
@@ -164,13 +164,34 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
 
     def is_grayscale_image(self, frame):
         """
-        Determines if the provided image frame is predominantly grayscale.
+        Determines if the provided image frame is predominantly grayscale while
+        emitting the sampled saturation so the UI can reflect the live value.
         Args:
             frame (numpy.ndarray): The image frame to analyze.
         Returns:
             bool: True if the image is grayscale, False otherwise.
         """
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        mean_saturation = np.mean(hsv[:, :, 1])
+        mean_saturation = float(np.mean(hsv[:, :, 1]))
         logging.debug(f'{self.name}: Mean saturation = {mean_saturation:.2f}')
+        self.saturationChanged.emit(mean_saturation)
         return mean_saturation < self.saturation_threshold
+
+    def __load_capture_region(self):
+        region = getattr(self.settings, 'relay_server_capture_region', None)
+        defaults = {
+            "left": 3814,
+            "top": 14,
+            "width": 86,
+            "height": 236,
+            "mon": 0,
+        }
+        if region is None:
+            return defaults
+        capture_region = {}
+        for key, fallback in defaults.items():
+            try:
+                capture_region[key] = int(region.get(key, fallback))
+            except (TypeError, ValueError):
+                capture_region[key] = fallback
+        return capture_region
