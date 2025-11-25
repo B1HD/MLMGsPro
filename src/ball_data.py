@@ -331,6 +331,12 @@ class BallData:
                     cleaned_result = ("-" if minus_count % 2 == 1 else "+") + re.sub(r'^[-+\s]+', '', cleaned_result)
                 cleaned_result = cleaned_result.replace(' ', '')
             if len(cleaned_result) <= 0:
+                previous_value = self.__previous_value(previous_balldata, roi)
+                if previous_value is not None:
+                    logging.debug(
+                        f"Value for {BallData.properties[roi]} is empty, reusing previous value: {previous_value}")
+                    setattr(self, roi, previous_value)
+                    return
                 logging.debug(f"Value for {BallData.properties[roi]} is empty")
                 cleaned_result = '0'
             # Remove any leading '.' sometimes a - is read as a '.'
@@ -459,6 +465,12 @@ class BallData:
                 setattr(self, roi, math.floor(result*10)/10)
             logging.debug(f'Cleaned and corrected value: {result}')
         except ValueError as e:
+            previous_value = self.__previous_value(previous_balldata, roi)
+            if previous_value is not None:
+                logging.debug(
+                    f"{format(e)}; reusing previous {BallData.properties[roi]} value: {previous_value}")
+                setattr(self, roi, previous_value)
+                return
             msg = f'{format(e)}'
         except:
             msg = f"Could not convert value {result} for '{BallData.properties[roi]}' to float 0"
@@ -467,6 +479,16 @@ class BallData:
                 logging.debug(msg)
                 self.errors[roi] = msg
                 setattr(self, roi, BallData.invalid_value)
+
+    def __previous_value(self, previous_balldata, roi):
+        if previous_balldata is None:
+            return None
+        previous_value = getattr(previous_balldata, roi, BallData.invalid_value)
+        if previous_value in (None, BallData.invalid_value):
+            return None
+        if isinstance(previous_value, (int, float)) and previous_value == 0:
+            return None
+        return previous_value
 
     def eq(self, other):
         diff_count = 0
