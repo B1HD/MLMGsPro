@@ -312,6 +312,7 @@ class BallData:
         msg = None
         result = ''
         try:
+            cleaned_result = ''
             # Strip non ascii chars and commas
             ocr_result = re.sub(r',', r'', re.sub(r'[^\x00-\x7f]', r'', ocr_result))
             # Normalize common unicode signs so spaced +/– reads are not dropped
@@ -319,17 +320,25 @@ class BallData:
             ocr_result = ocr_result.replace('−', '-').replace('–', '-').replace('—', '-')
             ocr_result = ocr_result.replace('＋', '+').replace('﹢', '+')
             logging.debug(f'remove non ASCII {roi}: {ocr_result.strip()}')
-            cleaned_result = re.findall(r"[LR]?[-+\s]*(?:\d*\.*\d+)[LR]?", ocr_result)
-            if isinstance(cleaned_result, list or tuple) and len(cleaned_result) > 0:
-                cleaned_result = cleaned_result[0]
-            logging.debug(f'cleaned result {roi}: {cleaned_result}')
-            if len(cleaned_result) > 0:
-                cleaned_result = cleaned_result.strip()
-                sign_prefix = re.match(r'^[-+\s]+', cleaned_result)
+            cleaned_match = re.findall(r"[LR]?[-+]*\s*\d+(?:\s*[\.,]\s*\d+)?", ocr_result)
+            if isinstance(cleaned_match, (list, tuple)) and len(cleaned_match) > 0:
+                cleaned_result = cleaned_match[0]
+                direction = None
+                if cleaned_result and cleaned_result[0] in ('L', 'R'):
+                    direction = cleaned_result[0]
+                    cleaned_result = cleaned_result[1:]
+                sign_prefix = re.match(r'^[-+]+', cleaned_result)
+                sign = '+'
                 if sign_prefix:
                     minus_count = sign_prefix.group(0).count('-')
-                    cleaned_result = ("-" if minus_count % 2 == 1 else "+") + re.sub(r'^[-+\s]+', '', cleaned_result)
-                cleaned_result = cleaned_result.replace(' ', '')
+                    sign = '-' if minus_count % 2 == 1 else '+'
+                cleaned_result = re.sub(r'^[-+]+', '', cleaned_result)
+                cleaned_result = re.sub(r'\s+', '', cleaned_result)
+                cleaned_result = cleaned_result.replace(',', '.').replace(' ', '')
+                cleaned_result = f"{'' if sign == '+' else '-'}{cleaned_result}"
+                if direction:
+                    cleaned_result = f"{cleaned_result}{direction}"
+            logging.debug(f'cleaned result {roi}: {cleaned_result}')
             if len(cleaned_result) <= 0:
                 previous_value = self.__previous_value(previous_balldata, roi)
                 if previous_value is not None:
