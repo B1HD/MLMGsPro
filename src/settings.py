@@ -3,6 +3,19 @@ from dataclasses import dataclass
 from src.settings_base import SettingsBase
 
 
+DEFAULT_RELAY_CAPTURE_REGION = {
+    "left": 3814,
+    "top": 14,
+    "width": 86,
+    "height": 236,
+    "mon": 0,
+}
+
+
+def _default_relay_capture_region():
+    return dict(DEFAULT_RELAY_CAPTURE_REGION)
+
+
 @dataclass
 class LaunchMonitor:
     MLM2PRO = "Rapsodo MLM2PRO"
@@ -45,6 +58,7 @@ class Settings(SettingsBase):
                 "zoom_images": "No",
                 "relay_server_ip_address": "127.0.0.1",
                 "relay_server_port": 9234,
+                "relay_server_capture_region": _default_relay_capture_region(),
                 'auto_start_all_apps': 'No',
                 'keep_log_history': 'No'
             }
@@ -83,6 +97,17 @@ class Settings(SettingsBase):
         if not hasattr(self, 'relay_server_port'):
             self.relay_server_port = 9234
             save = True
+        if not hasattr(self, 'relay_server_capture_region'):
+            self.relay_server_capture_region = _default_relay_capture_region()
+            save = True
+        elif isinstance(self.relay_server_capture_region, dict):
+            updated = False
+            for key, value in DEFAULT_RELAY_CAPTURE_REGION.items():
+                if key not in self.relay_server_capture_region:
+                    self.relay_server_capture_region[key] = value
+                    updated = True
+            if updated:
+                save = True
         if not hasattr(self, 'auto_start_all_apps'):
             value = 'No'
             if hasattr(self, 'default_device') and self.default_device != 'None':

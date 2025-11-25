@@ -474,7 +474,7 @@
            </widget>
           </item>
           <item>
-           <widget class="QPlainTextEdit" name="relay_server_port_edit">
+          <widget class="QPlainTextEdit" name="relay_server_port_edit">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
               <horstretch>0</horstretch>
@@ -505,8 +505,163 @@
            </widget>
           </item>
           <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_3"/>
+           <widget class="QPlainTextEdit" name="relay_capture_left_edit">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>31</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>16777215</width>
+              <height>31</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>Left coordinate (pixels) of the capture region</string>
+            </property>
+            <property name="tabChangesFocus">
+             <bool>true</bool>
+            </property>
+            <property name="placeholderText">
+             <string>Capture Region Left</string>
+            </property>
+           </widget>
           </item>
+          <item>
+           <widget class="QPlainTextEdit" name="relay_capture_top_edit">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>31</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>16777215</width>
+              <height>31</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>Top coordinate (pixels) of the capture region</string>
+            </property>
+            <property name="tabChangesFocus">
+             <bool>true</bool>
+            </property>
+            <property name="placeholderText">
+             <string>Capture Region Top</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPlainTextEdit" name="relay_capture_width_edit">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>31</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>16777215</width>
+              <height>31</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>Width (pixels) of the capture region</string>
+            </property>
+            <property name="tabChangesFocus">
+             <bool>true</bool>
+            </property>
+            <property name="placeholderText">
+             <string>Capture Region Width</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+            <widget class="QPlainTextEdit" name="relay_capture_height_edit">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>31</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>16777215</width>
+              <height>31</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>Height (pixels) of the capture region</string>
+            </property>
+            <property name="tabChangesFocus">
+             <bool>true</bool>
+            </property>
+            <property name="placeholderText">
+             <string>Capture Region Height</string>
+            </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPlainTextEdit" name="relay_capture_monitor_edit">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>31</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>16777215</width>
+               <height>31</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>Monitor index for the capture region (0 = entire desktop)</string>
+             </property>
+             <property name="tabChangesFocus">
+              <bool>true</bool>
+             </property>
+             <property name="placeholderText">
+              <string>Capture Region Monitor</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_3"/>
+           </item>
          </layout>
         </widget>
        </item>

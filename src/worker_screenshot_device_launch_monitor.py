@@ -109,6 +109,9 @@ class WorkerScreenshotDeviceLaunchMonitor(WorkerScreenshotBase):
                 # Wait for the configured screenshot interval (milliseconds to seconds).
                 time.sleep(self.settings.screenshot_interval / 1000)
 
+                if self.device is None:
+                    continue
+
                 # Capture the defined screen region.
                 sct_img = sct.grab(CAPTURE_REGION)
                 frame = np.array(sct_img)[:, :, :3]  # Discard alpha channel if present.
@@ -162,6 +165,17 @@ class WorkerScreenshotDeviceLaunchMonitor(WorkerScreenshotBase):
                         else:
                             logging.warning("OBS WebSocket not connected; skipping hotkey trigger.")
                         last_state = "hotkey"
+                    try:
+                        # Capture late-arriving club metrics while the overlay is visible
+                        # without generating a new shot.
+                        self.do_screenshot(
+                            self.screenshot,
+                            self.device,
+                            False,
+                            partial_only=True,
+                        )
+                    except Exception as e:
+                        logging.error(f"Error capturing delayed club metrics: {e}")
 
                 # If saturation is above the OBS threshold, pause ball data capture.
                 else:  # mean_saturation > obs_high_threshold
