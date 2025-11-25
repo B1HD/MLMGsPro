@@ -314,13 +314,17 @@ class BallData:
         try:
             # Strip non ascii chars and commas
             ocr_result = re.sub(r',', r'', re.sub(r'[^\x00-\x7f]', r'', ocr_result))
+            # Normalize common unicode signs so spaced +/– reads are not dropped
+            # when they precede the numeric portion (e.g. "+ 4.5").
+            ocr_result = ocr_result.replace('−', '-').replace('–', '-').replace('—', '-')
+            ocr_result = ocr_result.replace('＋', '+').replace('﹢', '+')
             logging.debug(f'remove non ASCII {roi}: {ocr_result.strip()}')
-            cleaned_result = re.findall(r"[LR]?[-+]?(?:\d*\.*\d+)[LR]?", ocr_result)
+            cleaned_result = re.findall(r"[LR]?[-+]?\s*(?:\d*\.*\d+)[LR]?", ocr_result)
             if isinstance(cleaned_result, list or tuple) and len(cleaned_result) > 0:
                 cleaned_result = cleaned_result[0]
             logging.debug(f'cleaned result {roi}: {cleaned_result}')
             if len(cleaned_result) > 0:
-                cleaned_result = cleaned_result.strip()
+                cleaned_result = cleaned_result.strip().replace(' ', '')
             if len(cleaned_result) <= 0:
                 logging.debug(f"Value for {BallData.properties[roi]} is empty")
                 cleaned_result = '0'
