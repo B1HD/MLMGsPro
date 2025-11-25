@@ -340,6 +340,13 @@ class BallData:
                     cleaned_result = f"{cleaned_result}{direction}"
             logging.debug(f'cleaned result {roi}: {cleaned_result}')
             if len(cleaned_result) <= 0:
+                # Fallback: try to salvage any signed number fragment before reusing the
+                # previous metric so positively signed readings aren't lost.
+                fallback_token = self.__fallback_numeric_token(ocr_result)
+                if fallback_token:
+                    cleaned_result = fallback_token
+                    logging.debug(f"fallback cleaned result {roi}: {cleaned_result}")
+            if len(cleaned_result) <= 0:
                 previous_value = self.__previous_value(previous_balldata, roi)
                 if previous_value is not None:
                     logging.debug(
@@ -439,6 +446,14 @@ class BallData:
                     result = value
                 else:
                     result = float(result)
+            if roi in (BallMetrics.CLUB_PATH, BallMetrics.ANGLE_OF_ATTACK) and abs(float(result)) > 90:
+                previous_value = self.__previous_value(previous_balldata, roi)
+                if previous_value is not None:
+                    logging.debug(
+                        f"Value for {BallData.properties[roi]} {result} out of range; reusing previous value: {previous_value}")
+                    setattr(self, roi, previous_value)
+                    return
+                raise ValueError(f"Value for {BallData.properties[roi]} is out of expected range: {result}")
             if roi == BallMetrics.CLUB_PATH and abs(result) > 30:
                 raise ValueError(f"Value for {BallData.properties[roi]} is out of bounds")
             logging.debug(f'result {roi}: {result}')
@@ -488,6 +503,21 @@ class BallData:
                 logging.debug(msg)
                 self.errors[roi] = msg
                 setattr(self, roi, BallData.invalid_value)
+
+    def __fallback_numeric_token(self, ocr_result: str) -> str:
+        """Salvage a signed numeric fragment from noisy OCR output."""
+        normalized = re.sub(r',', r'', re.sub(r'[^\x00-\x7f]', r'', ocr_result))
+        normalized = normalized.replace('−', '-').replace('–', '-').replace('—', '-')
+        normalized = normalized.replace('＋', '+').replace('﹢', '+')
+        normalized = re.sub(r'[^0-9+\-\.,LR]', ' ', normalized)
+        candidates = re.findall(r'[-+]?\d+(?:\s*[\.,]\s*\d+)?', normalized)
+        if not candidates:
+            return ''
+        for token in candidates:
+            stripped = token.strip()
+            if stripped.startswith(('+', '-')):
+                return stripped
+        return candidates[-1].strip()
 
     def __previous_value(self, previous_balldata, roi):
         if previous_balldata is None:
