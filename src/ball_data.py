@@ -319,12 +319,17 @@ class BallData:
             ocr_result = ocr_result.replace('−', '-').replace('–', '-').replace('—', '-')
             ocr_result = ocr_result.replace('＋', '+').replace('﹢', '+')
             logging.debug(f'remove non ASCII {roi}: {ocr_result.strip()}')
-            cleaned_result = re.findall(r"[LR]?[-+]?\s*(?:\d*\.*\d+)[LR]?", ocr_result)
+            cleaned_result = re.findall(r"[LR]?[-+\s]*(?:\d*\.*\d+)[LR]?", ocr_result)
             if isinstance(cleaned_result, list or tuple) and len(cleaned_result) > 0:
                 cleaned_result = cleaned_result[0]
             logging.debug(f'cleaned result {roi}: {cleaned_result}')
             if len(cleaned_result) > 0:
-                cleaned_result = cleaned_result.strip().replace(' ', '')
+                cleaned_result = cleaned_result.strip()
+                sign_prefix = re.match(r'^[-+\s]+', cleaned_result)
+                if sign_prefix:
+                    minus_count = sign_prefix.group(0).count('-')
+                    cleaned_result = ("-" if minus_count % 2 == 1 else "+") + re.sub(r'^[-+\s]+', '', cleaned_result)
+                cleaned_result = cleaned_result.replace(' ', '')
             if len(cleaned_result) <= 0:
                 logging.debug(f"Value for {BallData.properties[roi]} is empty")
                 cleaned_result = '0'
