@@ -342,7 +342,7 @@ class BallData:
             if len(cleaned_result) <= 0:
                 # Fallback: try to salvage any signed number fragment before reusing the
                 # previous metric so positively signed readings aren't lost.
-                fallback_token = self.__fallback_numeric_token(ocr_result)
+                fallback_token = self.__fallback_numeric_token(ocr_result, roi)
                 if fallback_token:
                     cleaned_result = fallback_token
                     logging.debug(f"fallback cleaned result {roi}: {cleaned_result}")
@@ -504,20 +504,58 @@ class BallData:
                 self.errors[roi] = msg
                 setattr(self, roi, BallData.invalid_value)
 
-    def __fallback_numeric_token(self, ocr_result: str) -> str:
-        """Salvage a signed numeric fragment from noisy OCR output."""
+    def __fallback_numeric_token(self, ocr_result: str, roi: str) -> str:
+        """Salvage a signed numeric fragment from noisy OCR output with range hints."""
         normalized = re.sub(r',', r'', re.sub(r'[^\x00-\x7f]', r'', ocr_result))
         normalized = normalized.replace('−', '-').replace('–', '-').replace('—', '-')
         normalized = normalized.replace('＋', '+').replace('﹢', '+')
         normalized = re.sub(r'[^0-9+\-\.,LR]', ' ', normalized)
-        candidates = re.findall(r'[-+]?\d+(?:\s*[\.,]\s*\d+)?', normalized)
-        if not candidates:
+        raw_tokens = re.findall(r'[-+]?\s*\d+(?:\s*[\.,]\s*\d+)?', normalized)
+        if not raw_tokens:
             return ''
-        for token in candidates:
-            stripped = token.strip()
-            if stripped.startswith(('+', '-')):
-                return stripped
-        return candidates[-1].strip()
+
+        def normalize_token(token: str) -> str:
+            token = token.strip()
+            sign_prefix = re.match(r'^[-+]+', token)
+            sign = '+'
+            if sign_prefix:
+                minus_count = sign_prefix.group(0).count('-')
+                sign = '-' if minus_count % 2 == 1 else '+'
+            token = re.sub(r'^[-+]+', '', token)
+            token = re.sub(r'\s+', '', token)
+            token = token.replace(',', '.').replace(' ', '')
+            return f"{'' if sign == '+' else '-'}{token}"
+
+        tokens = []
+        for candidate in raw_tokens:
+            cleaned = normalize_token(candidate)
+            try:
+                value = float(cleaned)
+            except ValueError:
+                continue
+            tokens.append((cleaned, value))
+
+        if not tokens:
+            return ''
+
+        range_hints = {
+            BallMetrics.CLUB_PATH: 30,
+            BallMetrics.ANGLE_OF_ATTACK: 90,
+            BallMetrics.SPIN_AXIS: 90,
+            BallMetrics.HLA: 90,
+            BallMetrics.VLA: 90,
+        }
+        limit = range_hints.get(roi)
+        if limit is not None:
+            for cleaned, value in tokens:
+                if abs(value) <= limit:
+                    return cleaned
+
+        for cleaned, _ in tokens:
+            if cleaned.startswith(('+', '-')):
+                return cleaned
+
+        return tokens[-1][0]
 
     def __previous_value(self, previous_balldata, roi):
         if previous_balldata is None:
