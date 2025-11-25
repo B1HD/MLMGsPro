@@ -45,11 +45,12 @@ class WorkerScreenshotBase(WorkerBase):
                 aoa_value = getattr(
                     screenshot.balldata, BallMetrics.ANGLE_OF_ATTACK, BallData.invalid_value
                 )
-                if aoa_value in (None, "", BallData.invalid_value) and spin_axis_value not in (
-                    None,
-                    "",
-                    BallData.invalid_value,
-                ):
+                spin_axis_overlay_value = (
+                    spin_axis_value not in (None, "", BallData.invalid_value)
+                    and spin_axis_value != 0
+                    and abs(spin_axis_value) <= 25
+                )
+                if aoa_value in (None, "", BallData.invalid_value, 0) and spin_axis_overlay_value:
                     setattr(screenshot.balldata, BallMetrics.ANGLE_OF_ATTACK, spin_axis_value)
                 setattr(screenshot.balldata, BallMetrics.SPIN_AXIS, BallData.invalid_value)
 

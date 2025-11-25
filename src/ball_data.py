@@ -415,6 +415,8 @@ class BallData:
                     result = value
                 else:
                     result = float(result)
+            if roi == BallMetrics.CLUB_PATH and abs(result) > 30:
+                raise ValueError(f"Value for {BallData.properties[roi]} is out of bounds")
             logging.debug(f'result {roi}: {result}')
             # Check values are not 0
             if self.launch_monitor == LaunchMonitor.UNEEKOR:
