@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 import cv2
 import numpy as np
 import pyqtgraph as pg
@@ -244,6 +245,11 @@ class ScreenshotBase(ViewBox):
                         filename = f"{roi}.bmp"
                         path = f"{os.getcwd()}\\appdata\\logs\\{filename}"
                         img.save(path)
+                        if roi == BallMetrics.CLUB_PATH:
+                            debug_dir = os.path.join(os.getcwd(), "appdata", "logs")
+                            os.makedirs(debug_dir, exist_ok=True)
+                            debug_filename = f"debug_path_{int(time.time() * 1000)}.png"
+                            img.save(os.path.join(debug_dir, debug_filename))
                 tesserocr_api.SetImage(img)
                 ocr_result = tesserocr_api.GetUTF8Text()
                 conf = tesserocr_api.MeanTextConf()
