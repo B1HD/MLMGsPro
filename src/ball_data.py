@@ -312,16 +312,47 @@ class BallData:
         msg = None
         result = ''
         try:
+            cleaned_result = ''
             # Strip non ascii chars and commas
             ocr_result = re.sub(r',', r'', re.sub(r'[^\x00-\x7f]', r'', ocr_result))
+            # Normalize common unicode signs so spaced +/– reads are not dropped
+            # when they precede the numeric portion (e.g. "+ 4.5").
+            ocr_result = ocr_result.replace('−', '-').replace('–', '-').replace('—', '-')
+            ocr_result = ocr_result.replace('＋', '+').replace('﹢', '+')
             logging.debug(f'remove non ASCII {roi}: {ocr_result.strip()}')
-            cleaned_result = re.findall(r"[LR]?[-+]?(?:\d*\.*\d+)[LR]?", ocr_result)
-            if isinstance(cleaned_result, list or tuple) and len(cleaned_result) > 0:
-                cleaned_result = cleaned_result[0]
+            cleaned_match = re.findall(r"[LR]?[-+]*\s*\d+(?:\s*[\.,]\s*\d+)?", ocr_result)
+            if isinstance(cleaned_match, (list, tuple)) and len(cleaned_match) > 0:
+                cleaned_result = cleaned_match[0]
+                direction = None
+                if cleaned_result and cleaned_result[0] in ('L', 'R'):
+                    direction = cleaned_result[0]
+                    cleaned_result = cleaned_result[1:]
+                sign_prefix = re.match(r'^[-+]+', cleaned_result)
+                sign = '+'
+                if sign_prefix:
+                    minus_count = sign_prefix.group(0).count('-')
+                    sign = '-' if minus_count % 2 == 1 else '+'
+                cleaned_result = re.sub(r'^[-+]+', '', cleaned_result)
+                cleaned_result = re.sub(r'\s+', '', cleaned_result)
+                cleaned_result = cleaned_result.replace(',', '.').replace(' ', '')
+                cleaned_result = f"{'' if sign == '+' else '-'}{cleaned_result}"
+                if direction:
+                    cleaned_result = f"{cleaned_result}{direction}"
             logging.debug(f'cleaned result {roi}: {cleaned_result}')
-            if len(cleaned_result) > 0:
-                cleaned_result = cleaned_result.strip()
             if len(cleaned_result) <= 0:
+                # Fallback: try to salvage any signed number fragment before reusing the
+                # previous metric so positively signed readings aren't lost.
+                fallback_token = self.__fallback_numeric_token(ocr_result, roi)
+                if fallback_token:
+                    cleaned_result = fallback_token
+                    logging.debug(f"fallback cleaned result {roi}: {cleaned_result}")
+            if len(cleaned_result) <= 0:
+                previous_value = self.__previous_value(previous_balldata, roi)
+                if previous_value is not None:
+                    logging.debug(
+                        f"Value for {BallData.properties[roi]} is empty, reusing previous value: {previous_value}")
+                    setattr(self, roi, previous_value)
+                    return
                 logging.debug(f"Value for {BallData.properties[roi]} is empty")
                 cleaned_result = '0'
             # Remove any leading '.' sometimes a - is read as a '.'
@@ -415,6 +446,16 @@ class BallData:
                     result = value
                 else:
                     result = float(result)
+            if roi in (BallMetrics.CLUB_PATH, BallMetrics.ANGLE_OF_ATTACK) and abs(float(result)) > 90:
+                previous_value = self.__previous_value(previous_balldata, roi)
+                if previous_value is not None:
+                    logging.debug(
+                        f"Value for {BallData.properties[roi]} {result} out of range; reusing previous value: {previous_value}")
+                    setattr(self, roi, previous_value)
+                    return
+                raise ValueError(f"Value for {BallData.properties[roi]} is out of expected range: {result}")
+            if roi == BallMetrics.CLUB_PATH and abs(result) > 30:
+                raise ValueError(f"Value for {BallData.properties[roi]} is out of bounds")
             logging.debug(f'result {roi}: {result}')
             # Check values are not 0
             if self.launch_monitor == LaunchMonitor.UNEEKOR:
@@ -448,6 +489,12 @@ class BallData:
                 setattr(self, roi, math.floor(result*10)/10)
             logging.debug(f'Cleaned and corrected value: {result}')
         except ValueError as e:
+            previous_value = self.__previous_value(previous_balldata, roi)
+            if previous_value is not None:
+                logging.debug(
+                    f"{format(e)}; reusing previous {BallData.properties[roi]} value: {previous_value}")
+                setattr(self, roi, previous_value)
+                return
             msg = f'{format(e)}'
         except:
             msg = f"Could not convert value {result} for '{BallData.properties[roi]}' to float 0"
@@ -456,6 +503,69 @@ class BallData:
                 logging.debug(msg)
                 self.errors[roi] = msg
                 setattr(self, roi, BallData.invalid_value)
+
+    def __fallback_numeric_token(self, ocr_result: str, roi: str) -> str:
+        """Salvage a signed numeric fragment from noisy OCR output with range hints."""
+        normalized = re.sub(r',', r'', re.sub(r'[^\x00-\x7f]', r'', ocr_result))
+        normalized = normalized.replace('−', '-').replace('–', '-').replace('—', '-')
+        normalized = normalized.replace('＋', '+').replace('﹢', '+')
+        normalized = re.sub(r'[^0-9+\-\.,LR]', ' ', normalized)
+        raw_tokens = re.findall(r'[-+]?\s*\d+(?:\s*[\.,]\s*\d+)?', normalized)
+        if not raw_tokens:
+            return ''
+
+        def normalize_token(token: str) -> str:
+            token = token.strip()
+            sign_prefix = re.match(r'^[-+]+', token)
+            sign = '+'
+            if sign_prefix:
+                minus_count = sign_prefix.group(0).count('-')
+                sign = '-' if minus_count % 2 == 1 else '+'
+            token = re.sub(r'^[-+]+', '', token)
+            token = re.sub(r'\s+', '', token)
+            token = token.replace(',', '.').replace(' ', '')
+            return f"{'' if sign == '+' else '-'}{token}"
+
+        tokens = []
+        for candidate in raw_tokens:
+            cleaned = normalize_token(candidate)
+            try:
+                value = float(cleaned)
+            except ValueError:
+                continue
+            tokens.append((cleaned, value))
+
+        if not tokens:
+            return ''
+
+        range_hints = {
+            BallMetrics.CLUB_PATH: 30,
+            BallMetrics.ANGLE_OF_ATTACK: 90,
+            BallMetrics.SPIN_AXIS: 90,
+            BallMetrics.HLA: 90,
+            BallMetrics.VLA: 90,
+        }
+        limit = range_hints.get(roi)
+        if limit is not None:
+            for cleaned, value in tokens:
+                if abs(value) <= limit:
+                    return cleaned
+
+        for cleaned, _ in tokens:
+            if cleaned.startswith(('+', '-')):
+                return cleaned
+
+        return tokens[-1][0]
+
+    def __previous_value(self, previous_balldata, roi):
+        if previous_balldata is None:
+            return None
+        previous_value = getattr(previous_balldata, roi, BallData.invalid_value)
+        if previous_value in (None, BallData.invalid_value):
+            return None
+        if isinstance(previous_value, (int, float)) and previous_value == 0:
+            return None
+        return previous_value
 
     def eq(self, other):
         diff_count = 0

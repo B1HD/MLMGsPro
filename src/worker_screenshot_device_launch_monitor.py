@@ -40,6 +40,7 @@ HOTKEY_MODIFIERS = {
     "command": False
 }
 WAIT_AFTER_GRAYSCALE = 2.5  # seconds to wait before triggering OBS hotkey
+CLUB_SCAN_TIMEOUT = 6.0  # seconds to wait for delayed club metrics before pausing
 
 # --------------------------------------------------
 # Helper Function
@@ -86,6 +87,8 @@ class WorkerScreenshotDeviceLaunchMonitor(WorkerScreenshotBase):
         self.screenshot = Screenshot(settings)
         self.shot_count = 0
         self.name = 'WorkerScreenshotDeviceLaunchMonitor'
+        self._club_scan_started_at = None
+        self._club_scan_timed_out = False
 
     def run(self):
         self.started.emit()
@@ -109,6 +112,9 @@ class WorkerScreenshotDeviceLaunchMonitor(WorkerScreenshotBase):
                 # Wait for the configured screenshot interval (milliseconds to seconds).
                 time.sleep(self.settings.screenshot_interval / 1000)
 
+                if self.device is None:
+                    continue
+
                 # Capture the defined screen region.
                 sct_img = sct.grab(CAPTURE_REGION)
                 frame = np.array(sct_img)[:, :, :3]  # Discard alpha channel if present.
@@ -129,6 +135,8 @@ class WorkerScreenshotDeviceLaunchMonitor(WorkerScreenshotBase):
                 # --- Modified Logic for Continual Shot Capture ---
                 # If saturation is below the shot data threshold, resume (if paused) and capture shot data.
                 if mean_saturation < shot_threshold:
+                    self._club_scan_started_at = None
+                    self._club_scan_timed_out = False
                     # If the reading is 0, the numbers haven't populated yet—skip capture.
                     if mean_saturation == 0:
                         logging.debug("Saturation reading is 0; shot data not yet populated. Waiting for valid readings.")
@@ -146,6 +154,30 @@ class WorkerScreenshotDeviceLaunchMonitor(WorkerScreenshotBase):
 
                 # If saturation is between the shot data threshold and the OBS threshold, trigger OBS hotkey.
                 elif shot_threshold <= mean_saturation <= obs_high_threshold:
+                    if self._club_scan_timed_out:
+                        if mean_saturation < shot_threshold or mean_saturation > obs_high_threshold:
+                            self._club_scan_timed_out = False
+                            self._club_scan_started_at = None
+                        else:
+                            if last_state != "pause":
+                                logging.debug(
+                                    "Timed out waiting for club data; pausing until saturation leaves the club-metric window."
+                                )
+                                self.pause()
+                                last_state = "pause"
+                            continue
+
+                    if self._club_scan_started_at is None:
+                        self._club_scan_started_at = time.time()
+                    elif time.time() - self._club_scan_started_at > CLUB_SCAN_TIMEOUT:
+                        logging.debug(
+                            f"Exceeded club-data wait window ({CLUB_SCAN_TIMEOUT}s); pausing until saturation changes."
+                        )
+                        self._club_scan_timed_out = True
+                        self.pause()
+                        last_state = "pause"
+                        continue
+
                     if last_state != "hotkey":
                         logging.debug(f"Saturation ({mean_saturation:.2f}) is between shot threshold ({shot_threshold}) and dynamic OBS threshold ({obs_high_threshold}): triggering OBS hotkey.")
                         logging.debug(f"Waiting {WAIT_AFTER_GRAYSCALE} seconds before triggering OBS hotkey...")
@@ -162,9 +194,22 @@ class WorkerScreenshotDeviceLaunchMonitor(WorkerScreenshotBase):
                         else:
                             logging.warning("OBS WebSocket not connected; skipping hotkey trigger.")
                         last_state = "hotkey"
+                    try:
+                        # Capture late-arriving club metrics while the overlay is visible
+                        # without generating a new shot.
+                        self.do_screenshot(
+                            self.screenshot,
+                            self.device,
+                            False,
+                            partial_only=True,
+                        )
+                    except Exception as e:
+                        logging.error(f"Error capturing delayed club metrics: {e}")
 
                 # If saturation is above the OBS threshold, pause ball data capture.
                 else:  # mean_saturation > obs_high_threshold
+                    self._club_scan_started_at = None
+                    self._club_scan_timed_out = False
                     if last_state != "pause":
                         logging.debug(f"Saturation ({mean_saturation:.2f}) is above dynamic OBS threshold ({obs_high_threshold}): pausing ball data capture.")
                         self.pause()
