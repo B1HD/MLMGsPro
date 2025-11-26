@@ -23,11 +23,22 @@ class WorkerScreenshotBase(WorkerBase):
         self.time_of_last_shot = datetime.now()
         self.name = 'WorkerScreenshotDeviceBase'
 
-    def do_screenshot(self, screenshot, settings, rois_setup, partial_only: bool = False):
+    def do_screenshot(
+        self,
+        screenshot,
+        settings,
+        rois_setup,
+        partial_only: bool = False,
+        include_club_metrics: bool = True,
+        include_non_club_metrics: bool = True,
+    ):
         # Grab sreenshot and process data, checks if this is a new shot
         screenshot.capture_screenshot(settings, rois_setup)
         if screenshot.screenshot_new:
-            screenshot.ocr_image()
+            screenshot.ocr_image(
+                include_club_metrics=include_club_metrics,
+                include_non_club_metrics=include_non_club_metrics,
+            )
             if partial_only:
                 # Treat this capture as a supplemental update for the prior shot.
                 screenshot.partial_update = True

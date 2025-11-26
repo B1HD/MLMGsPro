@@ -147,7 +147,12 @@ class WorkerScreenshotDeviceLaunchMonitor(WorkerScreenshotBase):
                     # Always capture a new shot (continuously) when in shot mode.
                     logging.debug(f"Saturation ({mean_saturation:.2f}) is below dynamic shot threshold ({shot_threshold}): capturing new shot and feeding data.")
                     try:
-                        self.do_screenshot(self.screenshot, self.device, False)
+                        self.do_screenshot(
+                            self.screenshot,
+                            self.device,
+                            False,
+                            include_club_metrics=False,
+                        )
                     except Exception as e:
                         logging.error(f"Error capturing shot: {e}")
                     last_state = "shot"
@@ -197,11 +202,15 @@ class WorkerScreenshotDeviceLaunchMonitor(WorkerScreenshotBase):
                     try:
                         # Capture late-arriving club metrics while the overlay is visible
                         # without generating a new shot.
+                        logging.debug(
+                            "Initiating delayed club-metric OCR pass (path/angle_of_attack) while overlay is visible."
+                        )
                         self.do_screenshot(
                             self.screenshot,
                             self.device,
                             False,
                             partial_only=True,
+                            include_non_club_metrics=False,
                         )
                     except Exception as e:
                         logging.error(f"Error capturing delayed club metrics: {e}")
