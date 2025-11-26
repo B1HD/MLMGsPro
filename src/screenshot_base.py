@@ -196,6 +196,11 @@ class ScreenshotBase(ViewBox):
                 train_file = 'voicecaddiesc4'
 
         logging.debug(f"Using {train_file}.traineddata for OCR")
+        logging.debug(
+            "Starting OCR pass (include_club_metrics=%s, include_non_club_metrics=%s)",
+            include_club_metrics,
+            include_non_club_metrics,
+        )
         tesserocr_api = tesserocr.PyTessBaseAPI(psm=tesserocr.PSM.SINGLE_WORD, lang=train_file, path='.\\')
         try:
             pil_img = Image.fromarray(self.screenshot_image).convert('RGB')

@@ -202,6 +202,9 @@ class WorkerScreenshotDeviceLaunchMonitor(WorkerScreenshotBase):
                     try:
                         # Capture late-arriving club metrics while the overlay is visible
                         # without generating a new shot.
+                        logging.debug(
+                            "Initiating delayed club-metric OCR pass (path/angle_of_attack) while overlay is visible."
+                        )
                         self.do_screenshot(
                             self.screenshot,
                             self.device,
