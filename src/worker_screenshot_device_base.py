@@ -23,11 +23,22 @@ class WorkerScreenshotBase(WorkerBase):
         self.time_of_last_shot = datetime.now()
         self.name = 'WorkerScreenshotDeviceBase'
 
-    def do_screenshot(self, screenshot, settings, rois_setup, partial_only: bool = False):
+    def do_screenshot(
+        self,
+        screenshot,
+        settings,
+        rois_setup,
+        partial_only: bool = False,
+        include_club_metrics: bool = True,
+        include_non_club_metrics: bool = True,
+    ):
         # Grab sreenshot and process data, checks if this is a new shot
         screenshot.capture_screenshot(settings, rois_setup)
         if screenshot.screenshot_new:
-            screenshot.ocr_image()
+            screenshot.ocr_image(
+                include_club_metrics=include_club_metrics,
+                include_non_club_metrics=include_non_club_metrics,
+            )
             if partial_only:
                 # Treat this capture as a supplemental update for the prior shot.
                 screenshot.partial_update = True
@@ -60,6 +71,13 @@ class WorkerScreenshotBase(WorkerBase):
                     if metric in (BallMetrics.CLUB_PATH, BallMetrics.ANGLE_OF_ATTACK):
                         continue
                     setattr(screenshot.balldata, metric, BallData.invalid_value)
+                logging.debug(
+                    "Partial club-data pass prepared: path=%s, aoa=%s, include_ball_data=%s, include_club_data=%s",
+                    getattr(screenshot.balldata, BallMetrics.CLUB_PATH, None),
+                    getattr(screenshot.balldata, BallMetrics.ANGLE_OF_ATTACK, None),
+                    screenshot.balldata.include_ball_data,
+                    screenshot.balldata.include_club_data,
+                )
             if screenshot.new_shot:
                 if screenshot.balldata.good_shot:
                     # If we receive more than 1 shot in 5 seconds assume it's a ghost shot

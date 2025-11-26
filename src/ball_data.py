@@ -344,6 +344,7 @@ class BallData:
                 # previous metric so positively signed readings aren't lost.
                 fallback_token = self.__fallback_numeric_token(ocr_result, roi)
                 if fallback_token:
+                    logging.debug(f"{BallData.properties[roi]} using fallback token: {fallback_token}")
                     cleaned_result = fallback_token
                     logging.debug(f"fallback cleaned result {roi}: {cleaned_result}")
             if len(cleaned_result) <= 0:
@@ -455,6 +456,9 @@ class BallData:
                     return
                 raise ValueError(f"Value for {BallData.properties[roi]} is out of expected range: {result}")
             if roi == BallMetrics.CLUB_PATH and abs(result) > 30:
+                logging.debug(
+                    f"Value for {BallData.properties[roi]} {result} exceeds bound 30; discarding reading"
+                )
                 raise ValueError(f"Value for {BallData.properties[roi]} is out of bounds")
             logging.debug(f'result {roi}: {result}')
             # Check values are not 0
