@@ -71,6 +71,13 @@ class WorkerScreenshotBase(WorkerBase):
                     if metric in (BallMetrics.CLUB_PATH, BallMetrics.ANGLE_OF_ATTACK):
                         continue
                     setattr(screenshot.balldata, metric, BallData.invalid_value)
+                logging.debug(
+                    "Partial club-data pass prepared: path=%s, aoa=%s, include_ball_data=%s, include_club_data=%s",
+                    getattr(screenshot.balldata, BallMetrics.CLUB_PATH, None),
+                    getattr(screenshot.balldata, BallMetrics.ANGLE_OF_ATTACK, None),
+                    screenshot.balldata.include_ball_data,
+                    screenshot.balldata.include_club_data,
+                )
             if screenshot.new_shot:
                 if screenshot.balldata.good_shot:
                     # If we receive more than 1 shot in 5 seconds assume it's a ghost shot
