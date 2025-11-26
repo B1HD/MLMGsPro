@@ -159,7 +159,11 @@ class ScreenshotBase(ViewBox):
         # the two images are
         return err
 
-    def ocr_image(self):
+    def ocr_image(
+        self,
+        include_club_metrics: bool = True,
+        include_non_club_metrics: bool = True,
+    ):
         self.balldata = BallData()
         self.balldata.club = self.selected_club
         self.new_shot = False
@@ -196,7 +200,14 @@ class ScreenshotBase(ViewBox):
         try:
             pil_img = Image.fromarray(self.screenshot_image).convert('RGB')
             sc = np.array(pil_img)
+            club_metrics = {BallMetrics.CLUB_PATH, BallMetrics.ANGLE_OF_ATTACK}
             for roi in self.rois_properties():
+                if not include_club_metrics and roi in club_metrics:
+                    logging.debug(f'ocr {roi} - skipping club metric until club pass')
+                    continue
+                if not include_non_club_metrics and roi not in club_metrics:
+                    logging.debug(f'ocr {roi} - skipping non-club metric during club pass')
+                    continue
                 cropped_img = self.image_rois[roi].getArrayRegion(sc, self.image_item)
                 if self.__class__.__name__ != 'ScreenshotExPutt' and self.settings.device_id == LaunchMonitor.MLM2PRO and self.settings.zoom_images == "Yes":
                     logging.debug(f'ocr {roi} - zoom image')
