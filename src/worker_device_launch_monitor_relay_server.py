@@ -181,7 +181,7 @@ class WorkerDeviceLaunchMonitorRelayServer(WorkerBase):
     def __load_capture_region(self):
         region = getattr(self.settings, 'relay_server_capture_region', None)
         defaults = {
-            "left": 3814,
+             "left": 1930,
             "top": 14,
             "width": 86,
             "height": 236,
