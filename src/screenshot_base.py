@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import pyqtgraph as pg
 import tesserocr
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageStat
 from pyqtgraph import ViewBox
 from src.ball_data import BallData, BallMetrics
 from src.labeled_roi import LabeledROI
@@ -250,6 +250,12 @@ class ScreenshotBase(ViewBox):
                             os.makedirs(debug_dir, exist_ok=True)
                             debug_filename = f"debug_path_{int(time.time() * 1000)}.png"
                             img.save(os.path.join(debug_dir, debug_filename))
+                stat = ImageStat.Stat(img)
+                variance = stat.var[0]
+                mean = stat.mean[0]
+                if variance < 1 and (mean < 5 or mean > 250):
+                    logging.debug(f'ocr {roi} - skipped empty ROI (mean: {mean}, variance: {variance})')
+                    continue
                 tesserocr_api.SetImage(img)
                 ocr_result = tesserocr_api.GetUTF8Text()
                 conf = tesserocr_api.MeanTextConf()
