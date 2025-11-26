@@ -147,7 +147,12 @@ class WorkerScreenshotDeviceLaunchMonitor(WorkerScreenshotBase):
                     # Always capture a new shot (continuously) when in shot mode.
                     logging.debug(f"Saturation ({mean_saturation:.2f}) is below dynamic shot threshold ({shot_threshold}): capturing new shot and feeding data.")
                     try:
-                        self.do_screenshot(self.screenshot, self.device, False)
+                        self.do_screenshot(
+                            self.screenshot,
+                            self.device,
+                            False,
+                            include_club_metrics=False,
+                        )
                     except Exception as e:
                         logging.error(f"Error capturing shot: {e}")
                     last_state = "shot"
@@ -202,6 +207,7 @@ class WorkerScreenshotDeviceLaunchMonitor(WorkerScreenshotBase):
                             self.device,
                             False,
                             partial_only=True,
+                            include_non_club_metrics=False,
                         )
                     except Exception as e:
                         logging.error(f"Error capturing delayed club metrics: {e}")
